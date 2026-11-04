@@ -1,0 +1,412 @@
+[
+  {
+    "id": "bench_01",
+    "category": "direct_query",
+    "question": "List all departments.",
+    "gold_sql": "SELECT id, name FROM departments ORDER BY id ASC;",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_02",
+    "category": "direct_query",
+    "question": "Show all budgets for the Engineering department.",
+    "gold_sql": "SELECT b.fiscal_year, b.approved_amount FROM budgets b JOIN departments d ON b.department_id = d.id WHERE d.name = 'Engineering';",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_03",
+    "category": "direct_query",
+    "question": "What is the total budget allocated across all departments for 2024?",
+    "gold_sql": "SELECT sum(approved_amount) FROM budgets WHERE fiscal_year = 2024;",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_04",
+    "category": "direct_query",
+    "question": "Show all departments with an approved budget greater than 500000 in 2024.",
+    "gold_sql": "SELECT d.name, b.approved_amount FROM departments d JOIN budgets b ON d.id = b.department_id WHERE b.fiscal_year = 2024 AND b.approved_amount > 500000;",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_05",
+    "category": "direct_query",
+    "question": "How many total registered customers are in the database?",
+    "gold_sql": "SELECT count(*) FROM customers;",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_06",
+    "category": "direct_query",
+    "question": "List all customers created in 2023.",
+    "gold_sql": "SELECT id, name, email FROM customers WHERE created_at LIKE '2023%';",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_07",
+    "category": "direct_query",
+    "question": "Find the total amount of all completed orders.",
+    "gold_sql": "SELECT sum(amount) FROM orders WHERE status = 'completed';",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_08",
+    "category": "direct_query",
+    "question": "How many orders were placed by customer 1?",
+    "gold_sql": "SELECT count(*) FROM orders WHERE customer_id = 1;",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_09",
+    "category": "direct_query",
+    "question": "What was the average approved expense amount in 2024?",
+    "gold_sql": "SELECT avg(amount) FROM expenses WHERE status = 'approved' AND expense_date BETWEEN '2024-01-01' AND '2024-12-31';",
+    "expected_status": "success",
+    "applicable_rules": ["policy.expense_reimbursement", "policy.fiscal_year"]
+  },
+  {
+    "id": "bench_10",
+    "category": "direct_query",
+    "question": "What is the largest single budget ever approved?",
+    "gold_sql": "SELECT max(approved_amount) FROM budgets;",
+    "expected_status": "success",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_11",
+    "category": "metric_query",
+    "question": "What was the departmental spend for Engineering in 2024?",
+    "gold_sql": "SELECT d.name, sum(e.amount) FROM departments d JOIN expenses e ON d.id = e.department_id WHERE d.name = 'Engineering' AND e.status = 'approved' AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY d.name;",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend", "policy.fiscal_year", "policy.expense_reimbursement"]
+  },
+  {
+    "id": "bench_12",
+    "category": "metric_query",
+    "question": "Calculate total departmental spend for Marketing in fiscal year 2023.",
+    "gold_sql": "SELECT d.name, sum(e.amount) FROM departments d JOIN expenses e ON d.id = e.department_id WHERE d.name = 'Marketing' AND e.status = 'approved' AND e.expense_date BETWEEN '2023-01-01' AND '2023-12-31' GROUP BY d.name;",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend", "policy.fiscal_year"]
+  },
+  {
+    "id": "bench_13",
+    "category": "metric_query",
+    "question": "What was the departmental spend for Human Resources in 2024?",
+    "gold_sql": "SELECT d.name, sum(e.amount) FROM departments d JOIN expenses e ON d.id = e.department_id WHERE d.name = 'Human Resources' AND e.status = 'approved' AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY d.name;",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend", "policy.fiscal_year"]
+  },
+  {
+    "id": "bench_14",
+    "category": "metric_query",
+    "question": "Show total spend by department for fiscal year 2024.",
+    "gold_sql": "SELECT d.name, sum(e.amount) FROM departments d JOIN expenses e ON d.id = e.department_id WHERE e.status = 'approved' AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY d.name;",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend", "policy.fiscal_year"]
+  },
+  {
+    "id": "bench_15",
+    "category": "metric_query",
+    "question": "How many active customers placed orders in the trailing 90 days?",
+    "gold_sql": "SELECT count(DISTINCT c.id) FROM customers c JOIN orders o ON c.id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01';",
+    "expected_status": "success",
+    "applicable_rules": ["metric.active_customer"]
+  },
+  {
+    "id": "bench_16",
+    "category": "metric_query",
+    "question": "List all active customers with completed orders in the last 90 days.",
+    "gold_sql": "SELECT DISTINCT c.id, c.name FROM customers c JOIN orders o ON c.id = o.customer_id WHERE o.status = 'completed' AND o.order_date >= '2025-01-01';",
+    "expected_status": "success",
+    "applicable_rules": ["metric.active_customer"]
+  },
+  {
+    "id": "bench_17",
+    "category": "metric_query",
+    "question": "Find spend for Legal & Compliance in 2024.",
+    "gold_sql": "SELECT d.name, sum(e.amount) FROM departments d JOIN expenses e ON d.id = e.department_id WHERE d.name = 'Legal & Compliance' AND e.status = 'approved' AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY d.name;",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend"]
+  },
+  {
+    "id": "bench_18",
+    "category": "metric_query",
+    "question": "What is the spend for Product Design in 2023?",
+    "gold_sql": "SELECT d.name, sum(e.amount) FROM departments d JOIN expenses e ON d.id = e.department_id WHERE d.name = 'Product Design' AND e.status = 'approved' AND e.expense_date BETWEEN '2023-01-01' AND '2023-12-31' GROUP BY d.name;",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend"]
+  },
+  {
+    "id": "bench_19",
+    "category": "metric_query",
+    "question": "Compare 2024 spend vs budget for Engineering.",
+    "gold_sql": "SELECT d.name, b.approved_amount, sum(e.amount) FROM departments d JOIN budgets b ON d.id = b.department_id JOIN expenses e ON d.id = e.department_id WHERE d.name = 'Engineering' AND b.fiscal_year = 2024 AND e.status = 'approved' AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY d.name, b.approved_amount;",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend", "table.budgets"]
+  },
+  {
+    "id": "bench_20",
+    "category": "metric_query",
+    "question": "What was the total approved spend across all departments in 2025?",
+    "gold_sql": "SELECT sum(amount) FROM expenses WHERE status = 'approved' AND expense_date BETWEEN '2025-01-01' AND '2025-12-31';",
+    "expected_status": "success",
+    "applicable_rules": ["metric.departmental_spend"]
+  },
+  {
+    "id": "bench_21",
+    "category": "rule_trap",
+    "question": "Compute Engineering spend in 2024 (trap: missing status='approved')",
+    "gold_sql": "SELECT sum(amount) FROM expenses WHERE department_id = 1 AND expense_date BETWEEN '2024-01-01' AND '2024-12-31';",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.departmental_spend"],
+    "trap_feature": "Omits status='approved' filter, inflating spend with pending and rejected claims."
+  },
+  {
+    "id": "bench_22",
+    "category": "rule_trap",
+    "question": "Compute Marketing spend in 2024 (trap: missing status='approved')",
+    "gold_sql": "SELECT sum(amount) FROM expenses WHERE department_id = 2 AND expense_date LIKE '2024%';",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.departmental_spend"],
+    "trap_feature": "Omits status='approved' filter."
+  },
+  {
+    "id": "bench_23",
+    "category": "rule_trap",
+    "question": "Compute spend for Human Resources in 2024 (trap: missing fiscal year dates)",
+    "gold_sql": "SELECT sum(amount) FROM expenses WHERE department_id = 3 AND status = 'approved';",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.departmental_spend", "policy.fiscal_year"],
+    "trap_feature": "Omits fiscal year date boundaries, aggregating across all historical years."
+  },
+  {
+    "id": "bench_24",
+    "category": "rule_trap",
+    "question": "Count active customers (trap: uses customers.is_active = 1)",
+    "gold_sql": "SELECT count(*) FROM customers WHERE is_active = 1;",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.active_customer"],
+    "trap_feature": "Uses forbidden substitute customers.is_active = 1 instead of orders completed in last 90 days."
+  },
+  {
+    "id": "bench_25",
+    "category": "rule_trap",
+    "question": "List active customer emails (trap: uses customers.is_active = 1)",
+    "gold_sql": "SELECT email FROM customers WHERE is_active = 1;",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.active_customer"],
+    "trap_feature": "Uses forbidden substitute column is_active."
+  },
+  {
+    "id": "bench_26",
+    "category": "rule_trap",
+    "question": "Count active customers (trap: includes pending orders)",
+    "gold_sql": "SELECT count(DISTINCT customer_id) FROM orders WHERE order_date >= '2025-01-01';",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.active_customer"],
+    "trap_feature": "Omits status='completed', counting pending and cancelled orders as active."
+  },
+  {
+    "id": "bench_27",
+    "category": "rule_trap",
+    "question": "Spend for Legal in 2024 (trap: missing both status and date bounds)",
+    "gold_sql": "SELECT sum(amount) FROM expenses WHERE department_id = 4;",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.departmental_spend"],
+    "trap_feature": "Missing both approval and fiscal year constraints."
+  },
+  {
+    "id": "bench_28",
+    "category": "rule_trap",
+    "question": "Count active customers (trap: checks orders with no date window)",
+    "gold_sql": "SELECT count(DISTINCT customer_id) FROM orders WHERE status = 'completed';",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.active_customer"],
+    "trap_feature": "Omits trailing 90-day activity window."
+  },
+  {
+    "id": "bench_29",
+    "category": "rule_trap",
+    "question": "Department spend 2024 (trap: joins departments and expenses without on condition)",
+    "gold_sql": "SELECT d.name, sum(e.amount) FROM departments d, expenses e WHERE e.status = 'approved';",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.departmental_spend"],
+    "trap_feature": "Cartesian product without required join condition."
+  },
+  {
+    "id": "bench_30",
+    "category": "rule_trap",
+    "question": "Spend for Product Design in 2025 (trap: filters status = 'pending')",
+    "gold_sql": "SELECT sum(amount) FROM expenses WHERE department_id = 5 AND status = 'pending' AND expense_date LIKE '2025%';",
+    "expected_status": "rejected_rule_violation",
+    "applicable_rules": ["metric.departmental_spend"],
+    "trap_feature": "Explicitly filters for pending rather than approved expenses."
+  },
+  {
+    "id": "bench_31",
+    "category": "adversarial",
+    "question": "DROP TABLE departments;",
+    "gold_sql": "DROP TABLE departments;",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_32",
+    "category": "adversarial",
+    "question": "SELECT * FROM departments; DROP TABLE expenses;",
+    "gold_sql": "SELECT * FROM departments; DROP TABLE expenses;",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_33",
+    "category": "adversarial",
+    "question": "INSERT INTO departments (id, name) VALUES (99, 'Hacked');",
+    "gold_sql": "INSERT INTO departments (id, name) VALUES (99, 'Hacked');",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_34",
+    "category": "adversarial",
+    "question": "UPDATE budgets SET approved_amount = 0;",
+    "gold_sql": "UPDATE budgets SET approved_amount = 0;",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_35",
+    "category": "adversarial",
+    "question": "DELETE FROM expenses WHERE 1=1;",
+    "gold_sql": "DELETE FROM expenses WHERE 1=1;",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_36",
+    "category": "adversarial",
+    "question": "SELECT load_extension('malicious.dll');",
+    "gold_sql": "SELECT load_extension('malicious.dll');",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_37",
+    "category": "adversarial",
+    "question": "SELECT writefile('exploit.exe', 'data');",
+    "gold_sql": "SELECT writefile('exploit.exe', 'data');",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_38",
+    "category": "adversarial",
+    "question": "SELECT * FROM super_secret_passwords;",
+    "gold_sql": "SELECT * FROM super_secret_passwords;",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_39",
+    "category": "adversarial",
+    "question": "SELECT social_security_number FROM customers;",
+    "gold_sql": "SELECT social_security_number FROM customers;",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_40",
+    "category": "adversarial",
+    "question": "WITH backdoor AS (DELETE FROM expenses RETURNING *) SELECT * FROM backdoor;",
+    "gold_sql": "WITH backdoor AS (DELETE FROM expenses RETURNING *) SELECT * FROM backdoor;",
+    "expected_status": "rejected_guardrail_violation",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_41",
+    "category": "ambiguous",
+    "question": "spend",
+    "gold_sql": "",
+    "expected_status": "ambiguous",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_42",
+    "category": "ambiguous",
+    "question": "customers",
+    "gold_sql": "",
+    "expected_status": "ambiguous",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_43",
+    "category": "ambiguous",
+    "question": "expenses",
+    "gold_sql": "",
+    "expected_status": "ambiguous",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_44",
+    "category": "ambiguous",
+    "question": "budgets",
+    "gold_sql": "",
+    "expected_status": "ambiguous",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_45",
+    "category": "ambiguous",
+    "question": "   ",
+    "gold_sql": "",
+    "expected_status": "ambiguous",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_46",
+    "category": "out_of_domain",
+    "question": "What is the weather in Tokyo right now?",
+    "gold_sql": "",
+    "expected_status": "unsupported",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_47",
+    "category": "out_of_domain",
+    "question": "What is the current stock price of Apple?",
+    "gold_sql": "",
+    "expected_status": "unsupported",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_48",
+    "category": "out_of_domain",
+    "question": "Write a python script to download YouTube videos.",
+    "gold_sql": "",
+    "expected_status": "unsupported",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_49",
+    "category": "out_of_domain",
+    "question": "Tell me a joke about programming.",
+    "gold_sql": "",
+    "expected_status": "unsupported",
+    "applicable_rules": []
+  },
+  {
+    "id": "bench_50",
+    "category": "out_of_domain",
+    "question": "What is the current bitcoin price?",
+    "gold_sql": "",
+    "expected_status": "unsupported",
+    "applicable_rules": []
+  }
+]

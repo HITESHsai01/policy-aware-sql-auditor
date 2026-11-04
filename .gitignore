@@ -1,0 +1,27 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE configs (optional, keep settings clean)
+.vscode/
+
+# Environment variables
+.env
+.env.*
+
+# Generated database & log files
+*.db
+*.sqlite3
+data/*.db
+data/*.sqlite3
+data/audit_logs.jsonl
+
+# Scratch / Temporary
+scratch/

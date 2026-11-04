@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "policy-aware-sql-auditor"
+version = "0.1.0"
+description = "Policy-Aware SQL Auditor"
+requires-python = ">=3.10"
+dependencies = [
+    "sqlglot",
+    "pyyaml",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pyright]
+include = ["src", "tests"]
+extraPaths = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

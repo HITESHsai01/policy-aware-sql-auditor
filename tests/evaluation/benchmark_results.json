@@ -1,0 +1,23 @@
+{
+  "Config A: Baseline": {
+    "Execution Accuracy": "100.0%",
+    "Rule Compliance Rate": "50.0%",
+    "Unsafe Rejection Rate": "50.0%",
+    "False Rejection Rate": "0.0%",
+    "Avg Latency (ms)": "0.75 ms"
+  },
+  "Config B: Baseline + Rules": {
+    "Execution Accuracy": "100.0%",
+    "Rule Compliance Rate": "50.0%",
+    "Unsafe Rejection Rate": "50.0%",
+    "False Rejection Rate": "0.0%",
+    "Avg Latency (ms)": "1.67 ms"
+  },
+  "Config C: Proposed Auditor": {
+    "Execution Accuracy": "100.0%",
+    "Rule Compliance Rate": "100.0%",
+    "Unsafe Rejection Rate": "100.0%",
+    "False Rejection Rate": "0.0%",
+    "Avg Latency (ms)": "2.43 ms"
+  }
+}
