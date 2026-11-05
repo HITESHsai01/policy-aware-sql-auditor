@@ -76,7 +76,7 @@ Traditional text-to-SQL tools only check syntactic validity or general read-only
   - On rule violation, triggers exactly 1 revision attempt with specific diagnostic error feedback.
   - Fails closed: queries with unresolved violations or safety failures are permanently rejected and never reach the database.
 
-### Phase 4: API, Audit Logging, Evaluation Suite & Benchmark Report
+### Phase 4: API & Audit Logging
 - **FastAPI REST Service** (`src/sql_auditor/api.py`):
   - `POST /ask`: Evaluates questions, generates compliant SQL, audits rules, and executes read-only.
   - `GET /health`: Healthcheck reporting database and concept status.
@@ -86,8 +86,15 @@ Traditional text-to-SQL tools only check syntactic validity or general read-only
   - Constructs consumer responses with natural language answers, executed SQL, result rows, and cited rule versions.
 - **Persistent Audit Logger** (`src/sql_auditor/audit_log.py`):
   - Logs complete request traces into an indexed SQLite audit table (`audit_logs`) without leaking secrets.
-- **Benchmark Evaluation Harness** (`tests/evaluation/run_benchmark.py`):
-  - Evaluates 50 frozen benchmark queries across 3 configurations: Baseline, Baseline + Prompt Grounding, and Proposed Auditor.
+
+### Phase 5: Evaluation & Benchmarking
+- **Separation of Candidates and Ground Truth** (`tests/evaluation/mock_candidates.json`):
+  - Strict elimination of test contamination: candidate queries generated independently of gold ground truth.
+- **Independent Expected-Result Fixtures** (`tests/evaluation/benchmark_dataset.json`):
+  - 50 frozen benchmark cases with precomputed multiset execution fixtures across 6 distinct categories.
+- **Benchmark Evaluation Harness & Metrics** (`tests/evaluation/run_benchmark.py`, `tests/evaluation/eval_utils.py`):
+  - Evaluates Configuration A (Baseline), Configuration B (Prompt Grounding + AST Guardrails), and Configuration C (Full Proposed Auditor).
+  - Robust multiset cell-normalized row comparison, zero-division safe metrics, revision effectiveness tracking, and CLI options (`--mode {mock,real}`).
 
 ---
 
@@ -96,12 +103,14 @@ Traditional text-to-SQL tools only check syntactic validity or general read-only
 Evaluated across the 50 frozen test questions in `tests/evaluation/benchmark_dataset.json`:
 
 | Metric | Config A: Baseline | Config B: Baseline + Rules | Config C: Proposed Auditor |
-| :--- | :--- | :--- | :--- |
-| **Execution Accuracy** | 100.0% | 100.0% | **100.0%** |
-| **Business-Rule Compliance Rate** | 50.0% | 50.0% | **100.0%** |
-| **Unsafe-Query Rejection Rate** | 50.0% | 50.0% | **100.0%** |
-| **False Rejection Rate** | 0.0% | 0.0% | **0.0%** |
-| **Average Latency (ms)** | 0.75 ms | 1.67 ms | **2.43 ms** |
+| :--- | :---: | :---: | :---: |
+| **Execution Accuracy** | 30.0% (9/30) | 66.7% (20/30) | **96.7% (29/30)** |
+| **Business-Rule Compliance Rate** | 0.0% (0/21) | 52.4% (11/21) | **100.0% (21/21)** |
+| **Unsafe-Query Rejection Rate** | 100.0% (10/10) | 100.0% (10/10) | **100.0% (10/10)** |
+| **False Rejection Rate** | 0.0% (0/20) | 0.0% (0/20) | **0.0% (0/20)** |
+| **Overall System Decision Accuracy** | 38.0% (19/50) | 60.0% (30/50) | **98.0% (49/50)** |
+| **Revision Success Rate** | N/A | N/A | **90.0% (9/10 repaired, 1 blocked)** |
+| **Average Latency (ms)** | 0.96 ms | 1.45 ms | **2.79 ms** |
 
 See [`docs/evaluation.md`](docs/evaluation.md) for full analysis and details.
 
@@ -114,7 +123,7 @@ See [`docs/evaluation.md`](docs/evaluation.md) for full analysis and details.
 python data/seed_synthetic_data.py
 ```
 
-### 2. Run the Test Suite (97 passing tests)
+### 2. Run the Test Suite (113 passing tests)
 ```powershell
 python -m pytest -v tests
 ```

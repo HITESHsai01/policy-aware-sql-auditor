@@ -16,7 +16,7 @@ related_concepts:
   - metric.departmental_spend
 required_filters:
   - column: expenses.expense_date
-    operator: "BETWEEN"
+    type: fiscal_year_range
     start_pattern: "{year}-01-01"
     end_pattern: "{year}-12-31"
 ---

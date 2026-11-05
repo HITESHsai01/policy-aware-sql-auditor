@@ -1,33 +1,44 @@
 """
-Safe Read-Only SQLite Executor Module.
+Safe Read-Only SQLite Executor Module for Policy-Aware SQL Auditor.
 
-Executes queries against SQLite in read-only mode (mode=ro) with strict safety controls:
+Executes queries against SQLite in read-only mode (`mode=ro`) with strict safety controls:
 - Read-only URI enforcement
-- Wall-clock execution timeout using sqlite3 progress handler
+- Wall-clock execution timeout using SQLite virtual machine progress handler
 - Row truncation limits to prevent memory exhaustion
 - Foreign key constraints enabled
-- Sanitized error reporting without stack trace leaks
+- Sanitized error reporting without leaking raw internal stack traces
 """
 
 from dataclasses import dataclass, field
 from pathlib import Path
 import sqlite3
 import time
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-try:
-    from sql_auditor.config import DEFAULT_DB_PATH, DEFAULT_ROW_LIMIT, DEFAULT_TIMEOUT_SECONDS
-except ImportError:
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from sql_auditor.config import DEFAULT_DB_PATH, DEFAULT_ROW_LIMIT, DEFAULT_TIMEOUT_SECONDS
+from sql_auditor.config import (
+    DEFAULT_DB_PATH,
+    DEFAULT_ROW_LIMIT,
+    DEFAULT_TIMEOUT_SECONDS,
+)
 
 
 @dataclass
 class ExecutionResult:
+    """Encapsulates the result of executing a read-only SQLite query.
+
+    Attributes:
+        success: True if the query completed without errors; False on error or timeout.
+        columns: List of projected column names in the result set.
+        rows: List of row dictionaries mapping column names to cell values.
+        row_count: Number of records returned in the rows list.
+        truncated: True if database output exceeded max_rows and was capped.
+        execution_time_ms: Measured elapsed query execution time in milliseconds.
+        error_message: Sanitized error description if execution failed.
+    """
+
     success: bool
-    columns: list[str] = field(default_factory=list)
-    rows: list[dict[str, Any]] = field(default_factory=list)
+    columns: List[str] = field(default_factory=list)
+    rows: List[Dict[str, Any]] = field(default_factory=list)
     row_count: int = 0
     truncated: bool = False
     execution_time_ms: float = 0.0
@@ -35,7 +46,13 @@ class ExecutionResult:
 
 
 class SafeExecutor:
-    """Safe read-only query executor for SQLite."""
+    """Safe read-only query executor for SQLite databases.
+
+    Features:
+    - Guaranteed read-only connection via URI mode=ro.
+    - Interrupts long-running queries via sqlite3.Connection.set_progress_handler.
+    - Caps result rows to prevent memory exhaustion.
+    """
 
     def __init__(
         self,
@@ -43,6 +60,13 @@ class SafeExecutor:
         timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         max_rows: int = DEFAULT_ROW_LIMIT,
     ):
+        """Initializes the executor with database path, timeout, and row limits.
+
+        Args:
+            db_path: Path to the SQLite database file.
+            timeout_seconds: Execution timeout limit in seconds.
+            max_rows: Maximum records returned before truncation.
+        """
         self.db_path = Path(db_path)
         self.timeout_seconds = timeout_seconds
         self.max_rows = max_rows
@@ -50,18 +74,17 @@ class SafeExecutor:
     def execute(
         self,
         sql: str,
-        params: Optional[tuple] = None,
+        params: Optional[Tuple[Any, ...]] = None,
         max_rows: Optional[int] = None,
         timeout_seconds: Optional[float] = None,
     ) -> ExecutionResult:
-        """
-        Executes a SQL query in read-only mode with timeout and row-limit safety.
+        """Executes a SQL query in read-only mode with timeout and row-limit safety.
 
         Args:
-            sql: The SQL query to execute.
-            params: Optional query parameters.
-            max_rows: Override maximum rows to fetch.
-            timeout_seconds: Override execution timeout in seconds.
+            sql: The SQL query string to execute.
+            params: Optional tuple of query parameters.
+            max_rows: Optional override for maximum rows to fetch.
+            timeout_seconds: Optional override for execution timeout in seconds.
 
         Returns:
             ExecutionResult containing query output or sanitized error description.
@@ -166,7 +189,20 @@ def execute_read_only(
     timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
     max_rows: int = DEFAULT_ROW_LIMIT,
 ) -> ExecutionResult:
-    """Convenience function to execute a query with default settings."""
-    executor = SafeExecutor(db_path=db_path, timeout_seconds=timeout_seconds, max_rows=max_rows)
-    return executor.execute(sql)
+    """Convenience helper to execute a query with default read-only settings.
 
+    Args:
+        sql: Query string to execute.
+        db_path: Path to database.
+        timeout_seconds: Wall-clock timeout.
+        max_rows: Maximum records returned.
+
+    Returns:
+        ExecutionResult containing results or failure diagnostic.
+    """
+    executor = SafeExecutor(
+        db_path=db_path,
+        timeout_seconds=timeout_seconds,
+        max_rows=max_rows,
+    )
+    return executor.execute(sql)
