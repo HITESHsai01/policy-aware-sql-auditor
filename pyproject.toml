@@ -10,6 +10,9 @@ requires-python = ">=3.10"
 dependencies = [
     "sqlglot",
     "pyyaml",
+    "streamlit",
+    "fastapi",
+    "pydantic",
 ]
 
 [tool.setuptools.packages.find]

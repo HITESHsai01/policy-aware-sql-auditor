@@ -10,7 +10,7 @@ forbidden substitute columns.
 from dataclasses import dataclass, field
 from enum import Enum
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 import sqlglot
 from sqlglot import exp
 
@@ -19,6 +19,7 @@ from sql_auditor.knowledge_loader import (
     ForbiddenSubstitute,
     RequiredFilter,
     RequiredJoin,
+
 )
 from sql_auditor.schema_inspector import DatabaseSchema
 
@@ -138,6 +139,19 @@ class RuleAuditor:
                 ],
             )
 
+        if not isinstance(ast, exp.Expression):
+            return RuleAuditResult(
+                status=AuditStatus.FAIL,
+                violations=[
+                    RuleViolation(
+                        rule_id="syntax_check",
+                        rule_version=1,
+                        violation_type="PARSE_ERROR",
+                        message="Query failed AST parsing during rule audit: expected SQL expression",
+                    )
+                ],
+            )
+
         # 1. Build Table Alias Map
         alias_map = self._build_alias_map(ast)
 
@@ -204,7 +218,9 @@ class RuleAuditor:
             passed_rules=passed_rules,
         )
 
-    def _build_alias_map(self, ast: exp.Expression) -> Dict[str, str]:
+    def _build_alias_map(
+        self, ast: Union[exp.Expression, exp.Expr]
+    ) -> Dict[str, str]:
         """Maps table aliases and table names to lowercased canonical table names.
 
         Args:
@@ -233,7 +249,7 @@ class RuleAuditor:
         return col_str.strip().lower()
 
     def _extract_referenced_columns(
-        self, ast: exp.Expression, alias_map: Dict[str, str]
+        self, ast: Union[exp.Expression, exp.Expr], alias_map: Dict[str, str]
     ) -> Set[str]:
         """Extracts all canonical table.column identifiers referenced in the query.
 
@@ -284,7 +300,7 @@ class RuleAuditor:
         return False
 
     def _extract_conditions(
-        self, ast: exp.Expression, alias_map: Dict[str, str]
+        self, ast: Union[exp.Expression, exp.Expr], alias_map: Dict[str, str]
     ) -> List[Dict[str, Any]]:
         """Extracts and normalizes conditions from WHERE and JOIN ON expressions.
 
@@ -340,6 +356,32 @@ class RuleAuditor:
 
         return conditions
 
+    def _resolve_col_table(
+        self, col_node: exp.Column, alias_map: Dict[str, str]
+    ) -> Optional[str]:
+        """Resolves an AST Column node to its canonical table name.
+
+        Args:
+            col_node: SQLGlot Column node.
+            alias_map: Mapping of table aliases to canonical table names.
+
+        Returns:
+            Canonical table name string if resolvable, None otherwise.
+        """
+        t_alias = col_node.table.lower() if col_node.table else None
+        if t_alias:
+            return alias_map.get(t_alias, t_alias)
+        if self.schema:
+            c_name = col_node.name.lower()
+            matching_tables = [
+                tbl_name
+                for tbl_name in set(alias_map.values())
+                if self.schema.has_column(tbl_name, c_name)
+            ]
+            if len(matching_tables) == 1:
+                return matching_tables[0]
+        return None
+
     def _resolve_col_string(
         self, col_node: exp.Column, alias_map: Dict[str, str]
     ) -> str:
@@ -353,14 +395,9 @@ class RuleAuditor:
             Canonical 'table.column' string.
         """
         c_name = col_node.name.lower()
-        t_alias = col_node.table.lower() if col_node.table else None
-        if t_alias:
-            resolved_table = alias_map.get(t_alias, t_alias)
+        resolved_table = self._resolve_col_table(col_node, alias_map)
+        if resolved_table:
             return f"{resolved_table}.{c_name}"
-        if self.schema:
-            for tbl_name in set(alias_map.values()):
-                if self.schema.has_column(tbl_name, c_name):
-                    return f"{tbl_name}.{c_name}"
         return c_name
 
     def _parse_eq(
@@ -497,12 +534,13 @@ class RuleAuditor:
         # 1. Exact value equality or single IN equivalence
         if rf.operator == "=" and rf.value is not None:
             expected_val = str(rf.value).lower()
+            target_col_name = canonical_target_col.split(".")[-1]
             found = False
             for cond in conditions:
                 cond_col = self._canonical_col_name(cond.get("column", ""))
-                # Compare column: either exact table.col or col name
-                if cond_col == canonical_target_col or cond_col.endswith(
-                    f".{canonical_target_col.split('.')[-1]}"
+                # Compare column: either exact table.col or unqualified col name
+                if cond_col == canonical_target_col or (
+                    "." not in cond_col and cond_col == target_col_name
                 ):
                     if cond["type"] == "EQ" and cond.get("value") == expected_val:
                         found = True
@@ -522,11 +560,14 @@ class RuleAuditor:
         # 2. Fiscal Year Range
         elif rf.type == "fiscal_year_range":
             target_year = context.get("fiscal_year") or context.get("year")
+            target_col_name = canonical_target_col.split(".")[-1]
             # If target year known, check year match; otherwise check that any valid fiscal year boundary exists
             has_date_filter = False
             for cond in conditions:
                 cond_col = self._canonical_col_name(cond.get("column", ""))
-                if cond_col == canonical_target_col or cond_col.endswith(".expense_date"):
+                if cond_col == canonical_target_col or (
+                    "." not in cond_col and cond_col == target_col_name
+                ):
                     if cond["type"] == "BETWEEN":
                         if target_year:
                             y_str = str(target_year)
@@ -559,10 +600,13 @@ class RuleAuditor:
 
         # 3. Relative date range (e.g. trailing 90 days for active customer)
         elif rf.type == "relative_date_range":
+            target_col_name = canonical_target_col.split(".")[-1]
             has_window_filter = False
             for cond in conditions:
                 cond_col = self._canonical_col_name(cond.get("column", ""))
-                if cond_col == canonical_target_col or cond_col.endswith(".order_date"):
+                if cond_col == canonical_target_col or (
+                    "." not in cond_col and cond_col == target_col_name
+                ):
                     if cond["type"] in ("BETWEEN", "GTE", "GT"):
                         has_window_filter = True
                         break
@@ -583,7 +627,7 @@ class RuleAuditor:
     def _check_required_join(
         self,
         rj: RequiredJoin,
-        ast: exp.Expression,
+        ast: Union[exp.Expression, exp.Expr],
         alias_map: Dict[str, str],
         concept: ConceptDefinition,
     ) -> Optional[RuleViolation]:
@@ -618,12 +662,20 @@ class RuleAuditor:
 
             if not has_join_condition:
                 for where_node in ast.find_all(exp.Where):
-                    where_cols = {
-                        alias_map.get(c.table.lower() if c.table else "", "")
-                        for c in where_node.find_all(exp.Column)
-                    }
-                    if req_from in where_cols and req_to in where_cols:
-                        has_join_condition = True
+                    for eq_node in where_node.find_all(exp.EQ):
+                        if self._is_guarded_by_or_or_not(eq_node):
+                            continue
+                        left = eq_node.this
+                        right = eq_node.expression
+                        if isinstance(left, exp.Column) and isinstance(right, exp.Column):
+                            t_left = self._resolve_col_table(left, alias_map)
+                            t_right = self._resolve_col_table(right, alias_map)
+                            if (t_left == req_from and t_right == req_to) or (
+                                t_left == req_to and t_right == req_from
+                            ):
+                                has_join_condition = True
+                                break
+                    if has_join_condition:
                         break
 
             if not has_join_condition:

@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query
 from pydantic import BaseModel, Field
 
 from sql_auditor.answer_builder import AnswerBuilder, StructuredAnswer
@@ -113,7 +113,7 @@ def create_app(
     app.state.db_path = db_path
 
     @app.get("/health", response_model=HealthResponse)
-    async def health_check() -> HealthResponse:
+    def health_check() -> HealthResponse:
         """Health check endpoint reporting database connectivity and loaded rule metrics."""
         pipe: AuditorPipeline = app.state.pipeline
         schema: DatabaseSchema = pipe.schema
@@ -128,7 +128,7 @@ def create_app(
         )
 
     @app.post("/ask", response_model=AskResponse)
-    async def ask_question(request: AskRequest) -> AskResponse:
+    def ask_question(request: AskRequest) -> AskResponse:
         """Evaluates a user question through the audited pipeline and returns a structured response."""
         pipe: AuditorPipeline = app.state.pipeline
         audit_log: AuditLogger = app.state.logger
@@ -163,14 +163,14 @@ def create_app(
         )
 
     @app.get("/audit-logs", response_model=List[Dict[str, Any]])
-    async def get_audit_logs(limit: int = Query(default=20, ge=1, le=100)) -> List[Dict[str, Any]]:
+    def get_audit_logs(limit: int = Query(default=20, ge=1, le=100)) -> List[Dict[str, Any]]:
         """Retrieves recent query audit records from persistent SQLite audit storage."""
         audit_log: AuditLogger = app.state.logger
         records = audit_log.get_recent_records(limit=limit)
         return [r.to_dict() for r in records]
 
     @app.get("/rules", response_model=List[Dict[str, Any]])
-    async def list_rules() -> List[Dict[str, Any]]:
+    def list_rules() -> List[Dict[str, Any]]:
         """Lists active Open Knowledge Format (OKF) business compliance rules and constraints."""
         pipe: AuditorPipeline = app.state.pipeline
         concepts = pipe.bundle.get_all()

@@ -30,8 +30,8 @@ def load_env(env_path: Optional[Path] = None, override: bool = False) -> None:
                 val = val.strip().strip("'\"")
                 if key and (override or key not in os.environ or not os.environ[key]):
                     os.environ[key] = val
-    except Exception:
-        pass
+    except (OSError, UnicodeDecodeError) as e:
+        raise RuntimeError(f"Failed to read environment file '{target_path}': {e}") from e
 
 
 # Automatically load .env on config module import
