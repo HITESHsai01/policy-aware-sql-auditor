@@ -198,3 +198,39 @@ class TestHarnessExecution:
         assert "Config C: Proposed Auditor" in results["summary"]
         assert "revision_effectiveness" in results
 
+    def test_evaluate_config_a_and_b_with_generator(self):
+        from tests.evaluation.run_benchmark import evaluate_config_a, evaluate_config_b
+        from sql_auditor.schema_inspector import inspect_schema
+        from sql_auditor.knowledge_loader import load_knowledge_bundle
+        from sql_auditor.executor import SafeExecutor
+        from sql_auditor.rule_auditor import RuleAuditor
+        from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend
+
+        schema = inspect_schema()
+        bundle = load_knowledge_bundle(schema=schema)
+        executor = SafeExecutor()
+        rule_auditor = RuleAuditor(schema=schema)
+        backend = MockGeneratorBackend(default_response="SELECT 1;")
+        generator = SQLGenerator(backend=backend, schema=schema)
+
+        mini_dataset = [{
+            "id": "test_01",
+            "category": "direct_query",
+            "question": "test query?",
+            "expected_result": [[1]],
+            "applicable_rules": [],
+        }]
+
+        metrics_a, itemized_a = evaluate_config_a(
+            mini_dataset, candidates={}, schema=schema, bundle=bundle,
+            executor=executor, rule_auditor=rule_auditor, generator=generator
+        )
+        assert itemized_a[0]["candidate_sql"] == "SELECT 1;"
+
+        metrics_b, itemized_b = evaluate_config_b(
+            mini_dataset, candidates={}, schema=schema, bundle=bundle,
+            executor=executor, rule_auditor=rule_auditor, generator=generator
+        )
+        assert itemized_b[0]["candidate_sql"] == "SELECT 1;"
+
+

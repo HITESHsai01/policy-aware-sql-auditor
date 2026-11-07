@@ -80,6 +80,21 @@ def filter_applicable_rules(
             applicable.append(r)
             continue
 
+        if r.id == "metric.departmental_spend":
+            if any(w in q_lower for w in ("spend", "spent", "spending", "expense", "expenses", "cost", "costs")):
+                applicable.append(r)
+            continue
+
+        if r.id == "metric.active_customer":
+            if any(w in q_lower for w in ("active", "activity", "recent buyer", "recent buyers")):
+                applicable.append(r)
+            continue
+
+        if r.id in ("policy.fiscal_year", "policy.expense_reimbursement"):
+            if any(w in q_lower for w in ("spend", "spent", "spending", "expense", "expenses", "reimbursement", "cost", "costs", "fiscal year")):
+                applicable.append(r)
+            continue
+
         # Extract semantic trigger terms from tags, title, and morphological synonyms
         domain_keywords = set()
         for tag in r.tags:
@@ -89,12 +104,6 @@ def filter_applicable_rules(
         for word in r.title.lower().split():
             if len(word) > 2:
                 domain_keywords.add(word)
-
-        # Standard financial/operational morphological variations
-        if {"spend", "expense", "budget", "cost"} & domain_keywords:
-            domain_keywords.update(["spent", "spending", "expenses", "costs", "reimbursement", "fiscal year"])
-        if {"active", "customer"} & domain_keywords:
-            domain_keywords.update(["activity", "recent buyer", "recent buyers"])
 
         if any(kw in q_lower for kw in domain_keywords):
             applicable.append(r)

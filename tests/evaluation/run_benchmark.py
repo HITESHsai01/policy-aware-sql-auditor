@@ -56,10 +56,12 @@ def evaluate_config_a(
     bundle: KnowledgeBundle,
     executor: SafeExecutor,
     rule_auditor: RuleAuditor,
+    generator: Optional[SQLGenerator] = None,
 ) -> Tuple[EvalMetrics, List[Dict[str, Any]]]:
     """
     Config A: Baseline SQL Generation without Prompt Grounding or Semantic Audit.
     Question + Schema -> Candidate SQL -> Direct SQLite Execution.
+    In real mode (generator supplied), generates live candidates using a schema-only prompt.
     """
     metrics = EvalMetrics(config_name="Config A: Baseline", total_queries=len(dataset))
     itemized: List[Dict[str, Any]] = []
@@ -71,7 +73,22 @@ def evaluate_config_a(
         exp_res = item["expected_result"]
         rule_ids = item.get("applicable_rules", [])
         rules = [bundle.get(r) for r in rule_ids if bundle.get(r)]
-        sql = candidates.get(qid, "")
+
+        t0 = time.perf_counter()
+        executed = False
+        result_match = False
+        is_compliant = False
+        err = None
+
+        if generator is not None:
+            try:
+                gen_res = generator.generate_candidate_sql(question=question, rules=[])
+                sql = gen_res.sql
+            except Exception as e:
+                sql = ""
+                err = f"Generation error: {e}"
+        else:
+            sql = candidates.get(qid, "")
 
         # Category counting
         if cat in ("direct_query", "metric_query"):
@@ -86,12 +103,6 @@ def evaluate_config_a(
             metrics.ambiguous_queries += 1
         if cat == "out_of_domain":
             metrics.unsupported_queries += 1
-
-        t0 = time.perf_counter()
-        executed = False
-        result_match = False
-        is_compliant = False
-        err = None
 
         if sql:
             exec_res = executor.execute(sql)
@@ -143,10 +154,12 @@ def evaluate_config_b(
     bundle: KnowledgeBundle,
     executor: SafeExecutor,
     rule_auditor: RuleAuditor,
+    generator: Optional[SQLGenerator] = None,
 ) -> Tuple[EvalMetrics, List[Dict[str, Any]]]:
     """
     Config B: Baseline + Prompt Grounding (Rules in prompt) + AST Guardrails.
     No post-generation semantic rule auditor.
+    In real mode (generator supplied), generates live candidates using a rule-grounded prompt.
     """
     metrics = EvalMetrics(config_name="Config B: Baseline + Rules", total_queries=len(dataset))
     itemized: List[Dict[str, Any]] = []
@@ -158,7 +171,22 @@ def evaluate_config_b(
         exp_res = item["expected_result"]
         rule_ids = item.get("applicable_rules", [])
         rules = [bundle.get(r) for r in rule_ids if bundle.get(r)]
-        sql = candidates.get(qid, "")
+
+        t0 = time.perf_counter()
+        executed = False
+        result_match = False
+        is_compliant = False
+        err = None
+
+        if generator is not None:
+            try:
+                gen_res = generator.generate_candidate_sql(question=question, rules=rules)
+                sql = gen_res.sql
+            except Exception as e:
+                sql = ""
+                err = f"Generation error: {e}"
+        else:
+            sql = candidates.get(qid, "")
 
         if cat in ("direct_query", "metric_query"):
             metrics.valid_queries += 1
@@ -172,12 +200,6 @@ def evaluate_config_b(
             metrics.ambiguous_queries += 1
         if cat == "out_of_domain":
             metrics.unsupported_queries += 1
-
-        t0 = time.perf_counter()
-        executed = False
-        result_match = False
-        is_compliant = False
-        err = None
 
         if sql:
             guardrail = validate_sql(sql, schema=schema)
@@ -292,8 +314,15 @@ def evaluate_config_c(
             if result_match:
                 metrics.correct_executions += 1
             if bool(rule_ids) or cat in ("metric_query", "rule_trap"):
-                is_compliant = True
-                metrics.rule_compliant_count += 1
+                rules = [pipeline.bundle.get(r) for r in rule_ids if pipeline.bundle.get(r)]
+                if rules and res.final_sql:
+                    ctx = {"fiscal_year": 2024} if "2024" in question else {}
+                    audit = pipeline.rule_auditor.audit(res.final_sql, rules=rules, context=ctx)
+                    is_compliant = audit.is_compliant
+                else:
+                    is_compliant = True
+                if is_compliant:
+                    metrics.rule_compliant_count += 1
         else:
             # Query was rejected by router, guardrails, or rule auditor
             if cat == "adversarial":
@@ -317,7 +346,8 @@ def evaluate_config_c(
             "revisions_attempted": res.revisions_attempted,
             "executed": res.executed,
             "result_match": result_match,
-            "rule_compliant": is_compliant or (cat == "rule_trap" and not res.executed),
+            "rule_compliant": is_compliant,
+            "blocked_fail_closed": (cat == "rule_trap" and not res.executed),
             "latency_ms": round(elapsed_ms, 2),
             "error": res.error_message,
         })
@@ -366,11 +396,17 @@ def run_benchmark(
     print(f"Evaluation Mode: {mode.upper()} ({'Pre-stored mock scenarios' if mode == 'mock' else f'Ollama {ollama_model}'})")
     print(f"Database: {db_path}\n")
 
+    gen_for_baselines = generator if mode == "real" else None
+
     print("[1/3] Evaluating Configuration A (Baseline)...")
-    res_a, itemized_a = evaluate_config_a(dataset, cand_a, schema, bundle, executor, rule_auditor)
+    res_a, itemized_a = evaluate_config_a(
+        dataset, cand_a, schema, bundle, executor, rule_auditor, generator=gen_for_baselines
+    )
 
     print("[2/3] Evaluating Configuration B (Baseline + Prompt Grounding)...")
-    res_b, itemized_b = evaluate_config_b(dataset, cand_b, schema, bundle, executor, rule_auditor)
+    res_b, itemized_b = evaluate_config_b(
+        dataset, cand_b, schema, bundle, executor, rule_auditor, generator=gen_for_baselines
+    )
 
     print("[3/3] Evaluating Configuration C (Proposed Policy-Aware Auditor)...")
     res_c, itemized_c = evaluate_config_c(dataset, cand_c_init, cand_c_rev, pipeline)

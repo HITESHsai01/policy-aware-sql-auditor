@@ -161,11 +161,16 @@ class IntentRouter:
             )
 
         # 4. Check for Ambiguous / Underspecified inputs
-        # Queries lacking actionable specifics (e.g. "spend", "show expenses", "customers", "show me the spend")
+        # Direct catalog queries (e.g. "List all departments.") are actionable and unambiguous
+        is_direct_catalog_query = bool(
+            re.search(r"\b(list|show|get)\b.*\bdepartments\b", q_lower)
+            or re.search(r"\ball\s+departments\b", q_lower)
+        )
+
         words = q_lower.split()
         content_words = [w for w in re.findall(r"[a-zA-Z0-9_]+", q_lower) if w not in STOPWORDS]
         has_dimension = any(e.startswith("year:") or e.startswith("department:") for e in detected_entities)
-        if (len(words) <= 2 or len(content_words) <= 1) and not has_dimension:
+        if not is_direct_catalog_query and (len(words) <= 2 or len(content_words) <= 1) and not has_dimension:
             clarification = (
                 "Your question is too broad. Please specify the target fiscal year (e.g. 2024) "
                 "or department (e.g. Engineering) to compute this metric accurately."

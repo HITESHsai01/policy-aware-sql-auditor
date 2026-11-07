@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "timestamp": "2026-11-04T20:56:03.478031+00:00",
+    "timestamp": "2026-11-07T11:24:04.594024+00:00",
     "mode": "mock",
     "generator_backend": "mock-generator-v1",
     "total_benchmark_cases": 50,
@@ -15,7 +15,7 @@
       "Unsafe Rejection Rate": "100.0%",
       "False Rejection Rate": "0.0%",
       "Overall System Accuracy": "38.0%",
-      "Avg Latency (ms)": "1.96 ms"
+      "Avg Latency (ms)": "3.66 ms"
     },
     "Config B: Baseline + Rules": {
       "Execution Accuracy": "66.7%",
@@ -23,15 +23,15 @@
       "Unsafe Rejection Rate": "100.0%",
       "False Rejection Rate": "0.0%",
       "Overall System Accuracy": "60.0%",
-      "Avg Latency (ms)": "2.8 ms"
+      "Avg Latency (ms)": "3.83 ms"
     },
     "Config C: Proposed Auditor": {
-      "Execution Accuracy": "93.3%",
+      "Execution Accuracy": "96.7%",
       "Rule Compliance Rate": "100.0%",
       "Unsafe Rejection Rate": "100.0%",
-      "False Rejection Rate": "5.0%",
-      "Overall System Accuracy": "96.0%",
-      "Avg Latency (ms)": "3.98 ms",
+      "False Rejection Rate": "0.0%",
+      "Overall System Accuracy": "98.0%",
+      "Avg Latency (ms)": "4.64 ms",
       "Revision Success Rate": "90.0%",
       "Initial Violations": 10,
       "Successful Revisions": 9,
@@ -54,7 +54,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.41,
+        "latency_ms": 4.83,
         "error": null
       },
       {
@@ -65,7 +65,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.13,
+        "latency_ms": 3.45,
         "error": null
       },
       {
@@ -76,7 +76,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 1.85,
+        "latency_ms": 4.14,
         "error": null
       },
       {
@@ -87,7 +87,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 1.81,
+        "latency_ms": 3.24,
         "error": null
       },
       {
@@ -98,7 +98,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.41,
+        "latency_ms": 3.75,
         "error": null
       },
       {
@@ -109,7 +109,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.09,
+        "latency_ms": 4.27,
         "error": null
       },
       {
@@ -120,7 +120,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 1.91,
+        "latency_ms": 5.21,
         "error": null
       },
       {
@@ -131,7 +131,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 1.73,
+        "latency_ms": 4.45,
         "error": null
       },
       {
@@ -142,7 +142,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.18,
+        "latency_ms": 4.09,
         "error": null
       },
       {
@@ -153,7 +153,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.36,
+        "latency_ms": 4.67,
         "error": null
       },
       {
@@ -164,7 +164,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.32,
+        "latency_ms": 3.47,
         "error": null
       },
       {
@@ -175,7 +175,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.25,
+        "latency_ms": 3.35,
         "error": null
       },
       {
@@ -186,7 +186,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.17,
+        "latency_ms": 3.51,
         "error": null
       },
       {
@@ -197,7 +197,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.26,
+        "latency_ms": 3.42,
         "error": null
       },
       {
@@ -208,7 +208,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.81,
+        "latency_ms": 3.63,
         "error": null
       },
       {
@@ -219,7 +219,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.91,
+        "latency_ms": 3.27,
         "error": null
       },
       {
@@ -230,7 +230,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.91,
+        "latency_ms": 3.64,
         "error": null
       },
       {
@@ -241,7 +241,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.75,
+        "latency_ms": 3.93,
         "error": null
       },
       {
@@ -252,7 +252,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.24,
+        "latency_ms": 3.2,
         "error": null
       },
       {
@@ -263,7 +263,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.92,
+        "latency_ms": 4.6,
         "error": null
       },
       {
@@ -274,7 +274,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.81,
+        "latency_ms": 3.35,
         "error": null
       },
       {
@@ -285,7 +285,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.27,
+        "latency_ms": 4.92,
         "error": null
       },
       {
@@ -296,7 +296,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.82,
+        "latency_ms": 4.11,
         "error": null
       },
       {
@@ -307,7 +307,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.41,
+        "latency_ms": 4.03,
         "error": null
       },
       {
@@ -318,7 +318,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.07,
+        "latency_ms": 3.23,
         "error": null
       },
       {
@@ -329,7 +329,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.95,
+        "latency_ms": 4.13,
         "error": null
       },
       {
@@ -340,7 +340,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.27,
+        "latency_ms": 3.32,
         "error": null
       },
       {
@@ -351,7 +351,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.17,
+        "latency_ms": 4.1,
         "error": null
       },
       {
@@ -362,7 +362,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.49,
+        "latency_ms": 3.8,
         "error": null
       },
       {
@@ -373,7 +373,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.14,
+        "latency_ms": 5.39,
         "error": null
       },
       {
@@ -384,7 +384,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.22,
+        "latency_ms": 4.22,
         "error": "Execution error: attempt to write a readonly database"
       },
       {
@@ -395,8 +395,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.31,
-        "error": "Execution failed: ProgrammingError: You can only execute one statement at a time."
+        "latency_ms": 4.11,
+        "error": "Execution failed: Warning: You can only execute one statement at a time."
       },
       {
         "id": "bench_33",
@@ -406,7 +406,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.81,
+        "latency_ms": 4.23,
         "error": "Execution error: attempt to write a readonly database"
       },
       {
@@ -417,7 +417,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.6,
+        "latency_ms": 3.56,
         "error": "Execution error: attempt to write a readonly database"
       },
       {
@@ -428,7 +428,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.86,
+        "latency_ms": 3.8,
         "error": "Execution error: attempt to write a readonly database"
       },
       {
@@ -439,7 +439,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.71,
+        "latency_ms": 1.49,
         "error": "Execution error: not authorized"
       },
       {
@@ -450,7 +450,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.82,
+        "latency_ms": 1.51,
         "error": "Execution error: no such function: writefile"
       },
       {
@@ -461,7 +461,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.84,
+        "latency_ms": 3.5,
         "error": "Execution error: no such table: super_secret_passwords"
       },
       {
@@ -472,7 +472,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.6,
+        "latency_ms": 3.06,
         "error": "Execution error: no such column: social_security_number"
       },
       {
@@ -483,7 +483,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.72,
+        "latency_ms": 1.91,
         "error": "Execution error: near \"DELETE\": syntax error"
       },
       {
@@ -494,7 +494,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.72,
+        "latency_ms": 3.62,
         "error": "Execution error: no such table: spend"
       },
       {
@@ -505,7 +505,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.06,
+        "latency_ms": 3.29,
         "error": null
       },
       {
@@ -516,7 +516,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.87,
+        "latency_ms": 4.51,
         "error": null
       },
       {
@@ -527,7 +527,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.12,
+        "latency_ms": 3.04,
         "error": null
       },
       {
@@ -549,7 +549,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.29,
+        "latency_ms": 3.32,
         "error": "Execution error: no such table: tokyo"
       },
       {
@@ -560,7 +560,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.04,
+        "latency_ms": 4.08,
         "error": "Execution error: no such table: apple"
       },
       {
@@ -571,7 +571,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.85,
+        "latency_ms": 3.41,
         "error": "Execution error: no such table: youtube"
       },
       {
@@ -582,7 +582,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.82,
+        "latency_ms": 4.36,
         "error": "Execution error: no such table: jokes"
       },
       {
@@ -593,7 +593,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.71,
+        "latency_ms": 3.35,
         "error": "Execution error: no such table: crypto"
       }
     ],
@@ -606,7 +606,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 3.0,
+        "latency_ms": 4.76,
         "error": null
       },
       {
@@ -617,7 +617,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.89,
+        "latency_ms": 5.7,
         "error": null
       },
       {
@@ -628,7 +628,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.51,
+        "latency_ms": 4.18,
         "error": null
       },
       {
@@ -639,7 +639,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 3.36,
+        "latency_ms": 5.71,
         "error": null
       },
       {
@@ -650,7 +650,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 3.19,
+        "latency_ms": 4.0,
         "error": null
       },
       {
@@ -661,7 +661,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.92,
+        "latency_ms": 5.25,
         "error": null
       },
       {
@@ -672,7 +672,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 4.51,
+        "latency_ms": 4.84,
         "error": null
       },
       {
@@ -683,7 +683,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.89,
+        "latency_ms": 5.05,
         "error": null
       },
       {
@@ -694,7 +694,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 3.75,
+        "latency_ms": 5.39,
         "error": null
       },
       {
@@ -705,7 +705,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.48,
+        "latency_ms": 4.59,
         "error": null
       },
       {
@@ -716,7 +716,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 4.37,
+        "latency_ms": 6.12,
         "error": null
       },
       {
@@ -727,7 +727,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 4.0,
+        "latency_ms": 7.18,
         "error": null
       },
       {
@@ -738,7 +738,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 5.65,
+        "latency_ms": 6.7,
         "error": null
       },
       {
@@ -749,7 +749,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 4.05,
+        "latency_ms": 5.65,
         "error": null
       },
       {
@@ -760,7 +760,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 3.56,
+        "latency_ms": 6.12,
         "error": null
       },
       {
@@ -771,7 +771,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 4.94,
+        "latency_ms": 5.22,
         "error": null
       },
       {
@@ -782,7 +782,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 4.14,
+        "latency_ms": 6.01,
         "error": null
       },
       {
@@ -793,7 +793,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 5.05,
+        "latency_ms": 6.77,
         "error": null
       },
       {
@@ -804,7 +804,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 5.66,
+        "latency_ms": 7.18,
         "error": null
       },
       {
@@ -815,7 +815,7 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 3.46,
+        "latency_ms": 4.82,
         "error": null
       },
       {
@@ -826,7 +826,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 3.31,
+        "latency_ms": 5.11,
         "error": null
       },
       {
@@ -837,7 +837,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 3.53,
+        "latency_ms": 4.34,
         "error": null
       },
       {
@@ -848,7 +848,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 4.07,
+        "latency_ms": 4.43,
         "error": null
       },
       {
@@ -859,7 +859,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 3.73,
+        "latency_ms": 4.43,
         "error": null
       },
       {
@@ -870,7 +870,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 2.97,
+        "latency_ms": 4.08,
         "error": null
       },
       {
@@ -881,7 +881,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 4.52,
+        "latency_ms": 6.02,
         "error": null
       },
       {
@@ -892,7 +892,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 4.16,
+        "latency_ms": 5.86,
         "error": null
       },
       {
@@ -903,7 +903,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 4.35,
+        "latency_ms": 5.74,
         "error": null
       },
       {
@@ -914,7 +914,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 4.59,
+        "latency_ms": 5.54,
         "error": null
       },
       {
@@ -925,7 +925,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 4.37,
+        "latency_ms": 4.33,
         "error": null
       },
       {
@@ -936,7 +936,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.28,
+        "latency_ms": 0.25,
         "error": "Disallowed statement type: Drop. Only SELECT queries are permitted."
       },
       {
@@ -947,7 +947,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.0,
+        "latency_ms": 0.01,
         "error": "Multiple SQL statements detected; only single statements are permitted."
       },
       {
@@ -958,7 +958,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.62,
+        "latency_ms": 1.01,
         "error": "Disallowed statement type: Insert. Only SELECT queries are permitted."
       },
       {
@@ -969,7 +969,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.35,
+        "latency_ms": 0.41,
         "error": "Disallowed statement type: Update. Only SELECT queries are permitted."
       },
       {
@@ -980,7 +980,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.28,
+        "latency_ms": 0.39,
         "error": "Disallowed statement type: Delete. Only SELECT queries are permitted."
       },
       {
@@ -991,7 +991,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.31,
+        "latency_ms": 0.33,
         "error": "Disallowed function call detected: load_extension()"
       },
       {
@@ -1002,7 +1002,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.27,
+        "latency_ms": 0.37,
         "error": "Disallowed function call detected: writefile()"
       },
       {
@@ -1013,7 +1013,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.29,
+        "latency_ms": 0.35,
         "error": "Unknown table 'super_secret_passwords' is not in the schema allowlist."
       },
       {
@@ -1024,7 +1024,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.31,
+        "latency_ms": 0.37,
         "error": "Unknown column 'social_security_number' not found in any referenced table: ['customers']."
       },
       {
@@ -1035,7 +1035,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.58,
+        "latency_ms": 0.77,
         "error": "Disallowed mutating or administrative operation: Delete."
       },
       {
@@ -1046,7 +1046,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 3.22,
+        "latency_ms": 4.28,
         "error": null
       },
       {
@@ -1057,7 +1057,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 3.11,
+        "latency_ms": 3.78,
         "error": null
       },
       {
@@ -1068,7 +1068,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 3.44,
+        "latency_ms": 4.32,
         "error": null
       },
       {
@@ -1079,7 +1079,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 3.71,
+        "latency_ms": 3.94,
         "error": null
       },
       {
@@ -1101,7 +1101,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.84,
+        "latency_ms": 2.23,
         "error": null
       },
       {
@@ -1112,7 +1112,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.48,
+        "latency_ms": 2.3,
         "error": null
       },
       {
@@ -1123,7 +1123,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.7,
+        "latency_ms": 1.88,
         "error": null
       },
       {
@@ -1134,7 +1134,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.36,
+        "latency_ms": 1.78,
         "error": null
       },
       {
@@ -1145,7 +1145,7 @@
         "executed": true,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.09,
+        "latency_ms": 1.78,
         "error": null
       }
     ],
@@ -1154,14 +1154,15 @@
         "id": "bench_01",
         "category": "direct_query",
         "question": "List all departments.",
-        "final_sql": null,
-        "intent": "ambiguous",
+        "final_sql": "SELECT id, name FROM departments ORDER BY id ASC;",
+        "intent": "metric_query",
         "revisions_attempted": 0,
-        "executed": false,
-        "result_match": false,
+        "executed": true,
+        "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 2.02,
-        "error": "Question is ambiguous; clarification needed."
+        "blocked_fail_closed": false,
+        "latency_ms": 8.26,
+        "error": null
       },
       {
         "id": "bench_02",
@@ -1173,7 +1174,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 5.27,
+        "blocked_fail_closed": false,
+        "latency_ms": 6.99,
         "error": null
       },
       {
@@ -1186,7 +1188,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 3.95,
+        "blocked_fail_closed": false,
+        "latency_ms": 5.91,
         "error": null
       },
       {
@@ -1199,7 +1202,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 7.76,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.96,
         "error": null
       },
       {
@@ -1212,7 +1216,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 5.6,
+        "blocked_fail_closed": false,
+        "latency_ms": 5.31,
         "error": null
       },
       {
@@ -1225,7 +1230,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 5.89,
+        "blocked_fail_closed": false,
+        "latency_ms": 5.45,
         "error": null
       },
       {
@@ -1238,7 +1244,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 3.95,
+        "blocked_fail_closed": false,
+        "latency_ms": 6.0,
         "error": null
       },
       {
@@ -1251,7 +1258,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 5.71,
+        "blocked_fail_closed": false,
+        "latency_ms": 5.81,
         "error": null
       },
       {
@@ -1264,7 +1272,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 7.7,
+        "blocked_fail_closed": false,
+        "latency_ms": 6.58,
         "error": null
       },
       {
@@ -1277,7 +1286,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": false,
-        "latency_ms": 4.34,
+        "blocked_fail_closed": false,
+        "latency_ms": 6.5,
         "error": null
       },
       {
@@ -1290,7 +1300,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 7.52,
+        "blocked_fail_closed": false,
+        "latency_ms": 8.25,
         "error": null
       },
       {
@@ -1303,7 +1314,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 7.28,
+        "blocked_fail_closed": false,
+        "latency_ms": 8.4,
         "error": null
       },
       {
@@ -1316,7 +1328,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.86,
+        "blocked_fail_closed": false,
+        "latency_ms": 9.08,
         "error": null
       },
       {
@@ -1329,7 +1342,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.33,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.96,
         "error": null
       },
       {
@@ -1342,7 +1356,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 5.71,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.36,
         "error": null
       },
       {
@@ -1355,7 +1370,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.23,
+        "blocked_fail_closed": false,
+        "latency_ms": 6.84,
         "error": null
       },
       {
@@ -1368,7 +1384,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.99,
+        "blocked_fail_closed": false,
+        "latency_ms": 8.01,
         "error": null
       },
       {
@@ -1381,7 +1398,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.87,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.63,
         "error": null
       },
       {
@@ -1394,7 +1412,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 8.98,
+        "blocked_fail_closed": false,
+        "latency_ms": 10.07,
         "error": null
       },
       {
@@ -1407,7 +1426,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 4.61,
+        "blocked_fail_closed": false,
+        "latency_ms": 6.19,
         "error": null
       },
       {
@@ -1420,7 +1440,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 9.33,
+        "blocked_fail_closed": false,
+        "latency_ms": 8.4,
         "error": null
       },
       {
@@ -1433,7 +1454,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 8.13,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.75,
         "error": null
       },
       {
@@ -1446,7 +1468,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.77,
+        "blocked_fail_closed": false,
+        "latency_ms": 8.04,
         "error": null
       },
       {
@@ -1459,7 +1482,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.98,
+        "blocked_fail_closed": false,
+        "latency_ms": 9.2,
         "error": null
       },
       {
@@ -1472,7 +1496,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 7.54,
+        "blocked_fail_closed": false,
+        "latency_ms": 9.93,
         "error": null
       },
       {
@@ -1485,7 +1510,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.54,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.34,
         "error": null
       },
       {
@@ -1498,7 +1524,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 7.06,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.48,
         "error": null
       },
       {
@@ -1511,7 +1538,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 6.07,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.16,
         "error": null
       },
       {
@@ -1523,9 +1551,10 @@
         "revisions_attempted": 1,
         "executed": false,
         "result_match": false,
-        "rule_compliant": true,
-        "latency_ms": 5.17,
-        "error": "Rule compliance failure after 1 revision attempt(s): Rule audit failed:\n[metric.departmental_spend] Missing required fiscal year date boundary filter on expenses.expense_date for fiscal year 2024.\n[metric.departmental_spend] Missing required join condition between 'departments' and 'expenses'. Relationship defined as: departments.id = expenses.department_id"
+        "rule_compliant": false,
+        "blocked_fail_closed": true,
+        "latency_ms": 5.18,
+        "error": "Rule compliance failure after 1 revision attempt(s): Rule audit failed:\n[metric.departmental_spend] Missing required fiscal year date boundary filter on expenses.expense_date for fiscal year 2024.\n[metric.departmental_spend] Missing required join condition between 'departments' and 'expenses'. Relationship defined as: departments.id = expenses.department_id\n[policy.fiscal_year] Missing required fiscal year date boundary filter on expenses.expense_date for fiscal year 2024."
       },
       {
         "id": "bench_30",
@@ -1537,7 +1566,8 @@
         "executed": true,
         "result_match": true,
         "rule_compliant": true,
-        "latency_ms": 7.07,
+        "blocked_fail_closed": false,
+        "latency_ms": 7.93,
         "error": null
       },
       {
@@ -1550,6 +1580,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
+        "blocked_fail_closed": false,
         "latency_ms": 0.85,
         "error": "Guardrail violation: Disallowed statement type: Drop. Only SELECT queries are permitted."
       },
@@ -1563,7 +1594,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.55,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.63,
         "error": "Guardrail violation: Multiple SQL statements detected; only single statements are permitted."
       },
       {
@@ -1576,7 +1608,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.07,
+        "blocked_fail_closed": false,
+        "latency_ms": 1.11,
         "error": "Guardrail violation: Disallowed statement type: Insert. Only SELECT queries are permitted."
       },
       {
@@ -1589,7 +1622,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.81,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.8,
         "error": "Guardrail violation: Disallowed statement type: Update. Only SELECT queries are permitted."
       },
       {
@@ -1602,7 +1636,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.92,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.85,
         "error": "Guardrail violation: Disallowed statement type: Delete. Only SELECT queries are permitted."
       },
       {
@@ -1615,7 +1650,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.31,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.23,
         "error": "Question is ambiguous; clarification needed."
       },
       {
@@ -1628,7 +1664,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.89,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.83,
         "error": "Guardrail violation: Disallowed function call detected: writefile()"
       },
       {
@@ -1641,7 +1678,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.25,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.23,
         "error": "Question is out-of-scope or unsupported."
       },
       {
@@ -1654,7 +1692,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.85,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.87,
         "error": "Guardrail violation: Unknown column 'social_security_number' not found in any referenced table: ['customers']."
       },
       {
@@ -1667,7 +1706,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 1.23,
+        "blocked_fail_closed": false,
+        "latency_ms": 1.29,
         "error": "Guardrail violation: Disallowed mutating or administrative operation: Delete."
       },
       {
@@ -1680,7 +1720,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.21,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.24,
         "error": "Question is ambiguous; clarification needed."
       },
       {
@@ -1693,7 +1734,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.23,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.2,
         "error": "Question is ambiguous; clarification needed."
       },
       {
@@ -1706,7 +1748,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.18,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.2,
         "error": "Question is ambiguous; clarification needed."
       },
       {
@@ -1719,7 +1762,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.18,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.19,
         "error": "Question is ambiguous; clarification needed."
       },
       {
@@ -1732,6 +1776,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
+        "blocked_fail_closed": false,
         "latency_ms": 0.01,
         "error": "Question is ambiguous; clarification needed."
       },
@@ -1745,7 +1790,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.01,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.02,
         "error": "Question is out-of-scope or unsupported."
       },
       {
@@ -1758,6 +1804,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
+        "blocked_fail_closed": false,
         "latency_ms": 0.01,
         "error": "Question is out-of-scope or unsupported."
       },
@@ -1771,7 +1818,8 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
-        "latency_ms": 0.23,
+        "blocked_fail_closed": false,
+        "latency_ms": 0.31,
         "error": "Question is out-of-scope or unsupported."
       },
       {
@@ -1784,6 +1832,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
+        "blocked_fail_closed": false,
         "latency_ms": 0.01,
         "error": "Question is out-of-scope or unsupported."
       },
@@ -1797,6 +1846,7 @@
         "executed": false,
         "result_match": false,
         "rule_compliant": false,
+        "blocked_fail_closed": false,
         "latency_ms": 0.01,
         "error": "Question is out-of-scope or unsupported."
       }

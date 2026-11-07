@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 
 from sql_auditor.answer_builder import AnswerBuilder, StructuredAnswer
 from sql_auditor.audit_log import AuditLogger, AuditRecord
-from sql_auditor.config import DEFAULT_DB_PATH, KNOWLEDGE_DIR
+from sql_auditor.config import DEFAULT_AUDIT_DB_PATH, DEFAULT_DB_PATH, KNOWLEDGE_DIR
 from sql_auditor.executor import SafeExecutor
 from sql_auditor.knowledge_loader import KnowledgeBundle, load_knowledge_bundle
 from sql_auditor.pipeline import AuditorPipeline, PipelineResult
@@ -71,6 +71,7 @@ def create_app(
     pipeline: Optional[AuditorPipeline] = None,
     logger: Optional[AuditLogger] = None,
     db_path: Path = DEFAULT_DB_PATH,
+    audit_db_path: Path = DEFAULT_AUDIT_DB_PATH,
     knowledge_dir: Path = KNOWLEDGE_DIR,
 ) -> FastAPI:
     """Factory function to instantiate the FastAPI app with dependency injection.
@@ -78,7 +79,8 @@ def create_app(
     Args:
         pipeline: Optional pre-configured AuditorPipeline instance.
         logger: Optional AuditLogger instance.
-        db_path: Path to the SQLite database file.
+        db_path: Path to the SQLite database file for business schema and execution.
+        audit_db_path: Path to the dedicated SQLite database file for audit logging.
         knowledge_dir: Path to directory containing OKF concept markdown files.
 
     Returns:
@@ -99,7 +101,7 @@ def create_app(
         )
 
     if logger is None:
-        logger = AuditLogger(db_path=db_path)
+        logger = AuditLogger(db_path=audit_db_path)
 
     app = FastAPI(
         title="Policy-Aware SQL Auditor API",

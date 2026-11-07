@@ -45,6 +45,12 @@ def test_classify_policy_check_expense(router):
     assert "policy.expense_reimbursement" in classification.matched_concept_ids
 
 
+def test_classify_direct_catalog_query(router):
+    classification = router.classify("List all departments.")
+    assert classification.intent != IntentType.AMBIGUOUS
+    assert classification.intent == IntentType.METRIC_QUERY
+
+
 def test_classify_ambiguous_short_query(router):
     classification = router.classify("spend")
     assert classification.intent == IntentType.AMBIGUOUS
