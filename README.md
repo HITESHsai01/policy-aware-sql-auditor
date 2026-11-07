@@ -2,6 +2,12 @@
 
 > **Deterministic SQL governance, semantic policy auditing, and AST security guardrails for enterprise Text-to-SQL generation.**
 
+<!-- =========================================================================== -->
+<!-- PLACEHOLDER 1: HERO SCREENSHOT (Dashboard Compliance & Audit Matrix)       -->
+<!-- Replace the line below with your screenshot or drag & drop image in GitHub: -->
+<!-- ![Policy-Aware SQL Auditor Dashboard](YOUR_MAIN_DASHBOARD_IMAGE_URL_OR_PATH) -->
+<!-- =========================================================================== -->
+
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │  SQL POLICY AUDITOR   [READ-ONLY AIRGAP]   [CORE V0.1.0]                               │
@@ -106,6 +112,14 @@ streamlit run app.py
 | **AST & Compliance Matrix** | Real-time AST safety pass/fail checks, retrieved OKF policies, and invariant verification verdicts. |
 | **SQL Revision Artifact** | Side-by-side view comparing candidate SQL against automatic self-correction repairs. |
 | **Execution Results** | Safe read-only preview of executed database rows, column headers, and execution latency in milliseconds. |
+
+<!-- =========================================================================== -->
+<!-- PLACEHOLDER 2 & 3: QUERY STUDIO & RESULTS SCREENSHOTS                       -->
+<!-- Replace the lines below with your screenshots or drag & drop in GitHub:     -->
+<!--                                                                             -->
+<!-- ![Query Studio](YOUR_QUERY_STUDIO_IMAGE_URL_OR_PATH)                       -->
+<!-- ![Execution Results](YOUR_RESULTS_IMAGE_URL_OR_PATH)                       -->
+<!-- =========================================================================== -->
 
 ---
 
