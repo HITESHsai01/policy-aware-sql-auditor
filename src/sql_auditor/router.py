@@ -2,7 +2,7 @@
 Intent Router Module for Policy-Aware SQL Auditor.
 
 Classifies incoming user questions into explicit operational intents:
-- metric_query: Requests for business calculations, aggregations, or reporting.
+- metric_query: Requests for business calculations, aggregations, or financial reporting.
 - policy_check: Inquiries about corporate definitions, rules, or compliance policies.
 - ambiguous: Underspecified questions requiring user clarification before generation.
 - unsupported: Out-of-scope questions, prompt injections, or DDL/arbitrary requests.
@@ -13,26 +13,39 @@ from enum import Enum
 import re
 from typing import List, Optional, Set
 
-try:
-    from sql_auditor.knowledge_loader import KnowledgeBundle
-    from sql_auditor.retrieval import BM25Retriever
-except ImportError:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from sql_auditor.knowledge_loader import KnowledgeBundle
-    from sql_auditor.retrieval import BM25Retriever
+from sql_auditor.knowledge_loader import KnowledgeBundle
+from sql_auditor.retrieval import BM25Retriever, STOPWORDS
 
 
 class IntentType(str, Enum):
+    """Operational categories of user natural-language questions."""
+
     METRIC_QUERY = "metric_query"
+    """Actionable analytical question targeting corporate data or business metrics."""
+
     POLICY_CHECK = "policy_check"
+    """Inquiry asking about business rule definitions, compliance policies, or audit criteria."""
+
     AMBIGUOUS = "ambiguous"
+    """Underspecified query missing required parameters (e.g. fiscal year, department)."""
+
     UNSUPPORTED = "unsupported"
+    """Out-of-domain topic, external inquiry, or unauthorized query."""
 
 
 @dataclass
 class IntentClassification:
+    """Outcome of intent routing and entity detection.
+
+    Attributes:
+        intent: Classified operational intent category.
+        confidence: Numeric confidence score between 0.0 and 1.0.
+        matched_concept_ids: IDs of OKF concepts matching the query.
+        detected_entities: Specific extracted filters/entities (e.g., 'year:2024', 'department:engineering').
+        clarification_prompt: Clarification question if intent is ambiguous or unsupported.
+        reason: Diagnostic reasoning explaining why the intent was assigned.
+    """
+
     intent: IntentType
     confidence: float
     matched_concept_ids: List[str] = field(default_factory=list)
@@ -47,12 +60,13 @@ POLICY_KEYWORDS: Set[str] = {
     "requirement", "requirements", "criteria", "standard", "how is", "what is the policy",
 }
 
-# Known domains / supported entities
+# Known enterprise departments for entity extraction
 KNOWN_DEPARTMENTS: Set[str] = {
     "engineering", "marketing", "human resources", "hr", "legal",
     "compliance", "product design", "design",
 }
 
+# Domains explicitly identified as out-of-scope for the corporate database
 UNSUPPORTED_DOMAINS: Set[str] = {
     "weather", "president", "ceo", "stock", "stocks", "bitcoin", "crypto",
     "music", "joke", "recipe", "flight", "hotel", "python script", "translate",
@@ -60,13 +74,39 @@ UNSUPPORTED_DOMAINS: Set[str] = {
 
 
 class IntentRouter:
-    """Classifies user natural-language questions and flags ambiguity early."""
+    """Classifies user natural-language questions and flags ambiguity early.
 
-    def __init__(self, bundle: Optional[KnowledgeBundle] = None, retriever: Optional[BM25Retriever] = None):
+    Operates a 5-step heuristic pipeline:
+    1. Out-of-domain detection (flags UNSUPPORTED domains).
+    2. Entity extraction (extracts years, departments, statuses).
+    3. Policy check detection (flags inquiries about business rules).
+    4. Ambiguity detection (flags underspecified queries lacking time or grouping boundaries).
+    5. Metric relevance scoring (matches queries against OKF concepts using BM25).
+    """
+
+    def __init__(
+        self,
+        bundle: Optional[KnowledgeBundle] = None,
+        retriever: Optional[BM25Retriever] = None,
+    ):
+        """Initializes the IntentRouter with an optional knowledge bundle and lexical retriever.
+
+        Args:
+            bundle: Optional KnowledgeBundle containing business rules.
+            retriever: Optional BM25Retriever instance; constructed from bundle if not supplied.
+        """
         self.bundle = bundle
         self.retriever = retriever or (BM25Retriever(bundle) if bundle else None)
 
     def classify(self, query: str) -> IntentClassification:
+        """Evaluates a user question and assigns an operational intent.
+
+        Args:
+            query: Raw user query string.
+
+        Returns:
+            IntentClassification containing intent type, confidence, entities, and rationale.
+        """
         cleaned = query.strip()
         if not cleaned:
             return IntentClassification(
@@ -121,10 +161,16 @@ class IntentRouter:
             )
 
         # 4. Check for Ambiguous / Underspecified inputs
-        # Very short queries lacking actionable specifics (e.g. "spend", "show expenses", "customers")
+        # Direct catalog queries (e.g. "List all departments.") are actionable and unambiguous
+        is_direct_catalog_query = bool(
+            re.search(r"\b(list|show|get)\b.*\bdepartments\b", q_lower)
+            or re.search(r"\ball\s+departments\b", q_lower)
+        )
+
         words = q_lower.split()
-        if len(words) <= 2 and not any(e.startswith("year:") or e.startswith("department:") for e in detected_entities):
-            # E.g. "spend", "total spend", "show customers"
+        content_words = [w for w in re.findall(r"[a-zA-Z0-9_]+", q_lower) if w not in STOPWORDS]
+        has_dimension = any(e.startswith("year:") or e.startswith("department:") for e in detected_entities)
+        if not is_direct_catalog_query and (len(words) <= 2 or len(content_words) <= 1) and not has_dimension:
             clarification = (
                 "Your question is too broad. Please specify the target fiscal year (e.g. 2024) "
                 "or department (e.g. Engineering) to compute this metric accurately."
@@ -155,4 +201,3 @@ class IntentRouter:
             reason="Could not match query to any supported corporate metrics, policies, or tables.",
             clarification_prompt="Unable to map your request to supported financial or customer data.",
         )
-

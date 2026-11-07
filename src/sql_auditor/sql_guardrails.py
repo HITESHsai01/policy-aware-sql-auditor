@@ -1,31 +1,24 @@
 """
-SQL Guardrails Module.
+SQL Guardrails Module for Policy-Aware SQL Auditor.
 
 Provides deterministic, AST-level safety and schema verification using SQLGlot.
-Enforces:
-1. Exactly one SQL statement.
-2. Read-only / SELECT-only queries (blocks DDL, DML, PRAGMA, administrative operations, mutating CTEs).
-3. Schema allowlisting (all tables and columns must exist in the live database schema).
-4. Disallowed system / high-risk functions (e.g. load_extension).
-5. Strict fail-closed semantics for invalid/unparseable SQL.
+Enforces strict fail-closed security properties:
+1. Exactly one SQL statement per submission (blocks semicolon injection / stacked queries).
+2. Read-only / SELECT-only queries (blocks DDL, DML, PRAGMA, admin commands, and mutating CTEs).
+3. Strict schema allowlisting (all referenced tables and columns must exist in live DatabaseSchema).
+4. Disallowed system / high-risk functions (e.g., load_extension, eval, writefile).
+5. Strict fail-closed semantics for unparseable or ambiguous SQL syntax.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, Set
+from typing import Dict, Optional, Set
 import sqlglot
-from sqlglot import exp, errors
+from sqlglot import errors, exp
 
-try:
-    from sql_auditor.schema_inspector import DatabaseSchema
-except ImportError:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from sql_auditor.schema_inspector import DatabaseSchema
+from sql_auditor.schema_inspector import DatabaseSchema
 
-
-# Disallowed SQLite / system functions
-DISALLOWED_FUNCTIONS = {
+# Disallowed SQLite / system functions that could permit code execution, file I/O, or sandbox escape
+DISALLOWED_FUNCTIONS: Set[str] = {
     "load_extension",
     "writefile",
     "readfile",
@@ -34,7 +27,7 @@ DISALLOWED_FUNCTIONS = {
     "eval",
 }
 
-# Node types that represent mutations, DDL, or admin commands
+# AST expression types that represent mutations, DDL schema alterations, or administrative commands
 MUTATING_OR_ADMIN_NODES = (
     exp.Insert,
     exp.Update,
@@ -50,6 +43,16 @@ MUTATING_OR_ADMIN_NODES = (
 
 @dataclass
 class GuardrailResult:
+    """Outcome of static AST security and schema allowlist inspection.
+
+    Attributes:
+        is_valid: True if candidate query passed all guardrail checks; False if rejected.
+        error_message: Detailed failure explanation if rejected.
+        tables: Set of canonical table names referenced by the query.
+        columns: Set of canonical column names referenced by the query.
+        ast: Parsed SQLGlot AST Expression node.
+    """
+
     is_valid: bool
     error_message: Optional[str] = None
     tables: Set[str] = field(default_factory=set)
@@ -62,13 +65,12 @@ def validate_sql(
     schema: Optional[DatabaseSchema] = None,
     dialect: str = "sqlite",
 ) -> GuardrailResult:
-    """
-    Validates a candidate SQL string against deterministic safety rules and schema allowlists.
+    """Validates candidate SQL against deterministic safety guardrails and schema allowlists.
 
     Args:
-        sql: The candidate SQL query string.
+        sql: Candidate SQL query string to evaluate.
         schema: Optional DatabaseSchema catalog for allowlist checks.
-        dialect: SQLGlot dialect (defaults to 'sqlite').
+        dialect: SQLGlot dialect name (defaults to 'sqlite').
 
     Returns:
         GuardrailResult indicating validity, error details, and extracted identifiers.
@@ -78,8 +80,7 @@ def validate_sql(
         return GuardrailResult(is_valid=False, error_message="Empty SQL statement.")
 
     # 1. Single Statement Check (Reject multiple semicolons or stacked queries)
-    # Check for raw semicolon injection before parsing
-    # Trailing semicolon is permitted, but multiple semicolons or statements are rejected
+    # Trailing semicolon is permitted, but internal semicolons or multiple statements are rejected
     stripped_trailing = cleaned_sql.rstrip(";")
     if ";" in stripped_trailing:
         return GuardrailResult(
@@ -154,7 +155,7 @@ def validate_sql(
 
     # 3. Schema Allowlist Check
     tables_found: Set[str] = set()
-    table_alias_map: dict[str, str] = {}  # alias -> real_table_name
+    table_alias_map: Dict[str, str] = {}  # alias -> real_table_name
 
     for tbl_node in ast.find_all(exp.Table):
         tbl_name = tbl_node.name.lower()
@@ -191,7 +192,7 @@ def validate_sql(
             col_table = col_node.table.lower() if col_node.table else None
 
             if col_table:
-                # Column is qualified with table name or alias (e.g. expenses.amount or e.amount)
+                # Column is qualified with table name or alias (e.g., expenses.amount or e.amount)
                 resolved_table = table_alias_map.get(col_table, col_table)
                 if resolved_table in cte_names:
                     # Column from CTE, accepted
@@ -219,14 +220,19 @@ def validate_sql(
                     if schema.has_column(tbl_name, col_name):
                         exists_in_any = True
                         break
-                if not exists_in_any and not cte_names:
-                    return GuardrailResult(
-                        is_valid=False,
-                        error_message=f"Unknown column '{col_name}' not found in any referenced table: {sorted(tables_found)}.",
-                        tables=tables_found,
-                        columns=columns_found,
-                        ast=ast,
-                    )
+                if not exists_in_any:
+                    # When CTEs are present, unqualified columns that don't exist in any
+                    # physical table could originate from a CTE projection. Since CTE
+                    # schemas are not available for static validation, we accept them only
+                    # when CTEs are defined. Without CTEs this is a hard schema violation.
+                    if not cte_names:
+                        return GuardrailResult(
+                            is_valid=False,
+                            error_message=f"Unknown column '{col_name}' not found in any referenced table: {sorted(tables_found)}.",
+                            tables=tables_found,
+                            columns=columns_found,
+                            ast=ast,
+                        )
 
     return GuardrailResult(
         is_valid=True,

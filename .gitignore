@@ -3,25 +3,80 @@ __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
 
 # Virtual environments
 .venv/
 venv/
 ENV/
+env/
+ENV/
 
-# IDE configs (optional, keep settings clean)
+# Agent teamwork & background run logs
+.agents/
+
+# IDE & Editor configs
 .vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
+*.temp
 
-# Environment variables
+# Environment variables & secrets
 .env
 .env.*
+!.env.example
+.streamlit/secrets.toml
 
-# Generated database & log files
+# Generated databases, SQLite WAL & logs
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
 *.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
 data/*.db
+data/*.db-wal
+data/*.db-shm
+data/*.db-journal
 data/*.sqlite3
+data/*.sqlite3-wal
+data/*.sqlite3-shm
+data/*.sqlite3-journal
 data/audit_logs.jsonl
+*.log
+logs/
 
-# Scratch / Temporary
+# Build & packaging artifacts
+dist/
+build/
+develop-eggs/
+eggs/
+*.egg-info/
+*.egg
 scratch/
+
+# Operating System files
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+[Nn]et[Hh]ood
+[Pp]rint[Hh]ood
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+

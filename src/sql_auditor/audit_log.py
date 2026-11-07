@@ -1,10 +1,10 @@
 """
-Audit Trail Logger Module.
+Audit Trail Logger Module for Policy-Aware SQL Auditor.
 
-Records full diagnostic audit logs for every query evaluation into a dedicated
-SQLite audit table (and optional JSONL sink), capturing request timestamps,
+Records comprehensive diagnostic audit logs for every query evaluation into a dedicated
+SQLite audit table (`audit_logs`), capturing request timestamps, intent classification,
 retrieved rules, candidate SQL, guardrail results, compliance check diagnostics,
-and execution stats without leaking secrets or raw stack traces.
+and execution telemetry without leaking secrets or raw internal stack traces.
 """
 
 from dataclasses import asdict, dataclass
@@ -12,21 +12,36 @@ from datetime import datetime, timezone
 import json
 from pathlib import Path
 import sqlite3
+import time
 from typing import Any, Dict, List, Optional
 import uuid
 
-try:
-    from sql_auditor.config import DEFAULT_DB_PATH
-    from sql_auditor.pipeline import PipelineResult
-except ImportError:
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from sql_auditor.config import DEFAULT_DB_PATH
-    from sql_auditor.pipeline import PipelineResult
+from sql_auditor.config import DEFAULT_AUDIT_DB_PATH
+from sql_auditor.pipeline import PipelineResult
 
 
 @dataclass
 class AuditRecord:
+    """Persistent audit entry recording full evaluation telemetry for a query.
+
+    Attributes:
+        request_id: Globally unique identifier for this audit event.
+        timestamp: ISO 8601 UTC timestamp string.
+        question: Original natural-language question submitted by user.
+        intent: Classified operational intent category.
+        executed: True if the query was verified and executed; False otherwise.
+        final_sql: Candidate or approved SQL query text.
+        retrieved_rules: List of retrieved OKF concept tags ('<id>@v<version>').
+        guardrail_status: Status code: 'PASS', 'FAIL', or 'SKIPPED'.
+        guardrail_error: Error message if rejected by AST guardrails.
+        rule_audit_status: Status code: 'PASS', 'FAIL', or 'SKIPPED'.
+        rule_violations: List of violation descriptions if rule audit failed.
+        revisions_attempted: Number of self-correction revision cycles executed.
+        execution_time_ms: Query execution duration in milliseconds.
+        row_count: Number of records returned by the query.
+        error_message: Error string if execution or validation failed.
+    """
+
     request_id: str
     timestamp: str
     question: str
@@ -44,22 +59,45 @@ class AuditRecord:
     error_message: Optional[str]
 
     def to_dict(self) -> Dict[str, Any]:
+        """Serializes the audit record to a dictionary."""
         return asdict(self)
 
 
 class AuditLogger:
-    """Manages persistent SQLite logging of audit records."""
+    """Manages persistent SQLite logging and retrieval of query audit records."""
 
-    def __init__(self, db_path: Path = DEFAULT_DB_PATH):
+    def __init__(self, db_path: Path = DEFAULT_AUDIT_DB_PATH):
+        """Initializes the audit logger and ensures database tables and indexes exist.
+
+        Args:
+            db_path: Path to SQLite database hosting the audit_logs table.
+        """
         self.db_path = Path(db_path)
         self._init_db()
 
+    def _get_connection(self, timeout: float = 10.0) -> sqlite3.Connection:
+        """Creates a SQLite connection with configured busy timeout and WAL optimization.
+
+        Args:
+            timeout: Connection busy wait timeout in seconds (default: 10.0).
+
+        Returns:
+            Open sqlite3.Connection instance with busy_timeout configured.
+        """
+        conn = sqlite3.connect(self.db_path, timeout=timeout)
+        conn.execute("PRAGMA busy_timeout = 5000;")
+        return conn
+
     def _init_db(self) -> None:
-        """Initializes the audit_logs table if it does not exist."""
+        """Initializes the audit_logs table, WAL mode, and performance indexes."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        conn = sqlite3.connect(self.db_path)
+        conn = self._get_connection(timeout=10.0)
         try:
             cur = conn.cursor()
+            # Enable Write-Ahead Logging (WAL) mode and busy timeout to prevent lock contention
+            cur.execute("PRAGMA journal_mode = WAL;")
+            cur.execute("PRAGMA busy_timeout = 5000;")
+            cur.execute("PRAGMA synchronous = NORMAL;")
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS audit_logs (
                     request_id TEXT PRIMARY KEY,
@@ -90,7 +128,15 @@ class AuditLogger:
         result: PipelineResult,
         request_id: Optional[str] = None,
     ) -> AuditRecord:
-        """Constructs an AuditRecord from a PipelineResult and persists it to SQLite."""
+        """Constructs an AuditRecord from a PipelineResult and persists it to SQLite.
+
+        Args:
+            result: Completed PipelineResult instance from pipeline execution.
+            request_id: Optional custom request UUID; generated automatically if None.
+
+        Returns:
+            The persisted AuditRecord instance.
+        """
         req_id = request_id or str(uuid.uuid4())
         ts = datetime.now(timezone.utc).isoformat()
 
@@ -132,46 +178,61 @@ class AuditLogger:
             error_message=result.error_message,
         )
 
-        # Write to SQLite
-        conn = sqlite3.connect(self.db_path)
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                INSERT INTO audit_logs (
-                    request_id, timestamp, question, intent, executed,
-                    final_sql, retrieved_rules, guardrail_status, guardrail_error,
-                    rule_audit_status, rule_violations, revisions_attempted,
-                    execution_time_ms, row_count, error_message
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-                """,
-                (
-                    record.request_id,
-                    record.timestamp,
-                    record.question,
-                    record.intent,
-                    1 if record.executed else 0,
-                    record.final_sql,
-                    json.dumps(record.retrieved_rules),
-                    record.guardrail_status,
-                    record.guardrail_error,
-                    record.rule_audit_status,
-                    json.dumps(record.rule_violations),
-                    record.revisions_attempted,
-                    record.execution_time_ms,
-                    record.row_count,
-                    record.error_message,
-                ),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        # Write to SQLite with retry protection for transient locks
+        max_attempts = 3
+        for attempt in range(max_attempts):
+            conn = self._get_connection(timeout=10.0)
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    """
+                    INSERT INTO audit_logs (
+                        request_id, timestamp, question, intent, executed,
+                        final_sql, retrieved_rules, guardrail_status, guardrail_error,
+                        rule_audit_status, rule_violations, revisions_attempted,
+                        execution_time_ms, row_count, error_message
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        record.request_id,
+                        record.timestamp,
+                        record.question,
+                        record.intent,
+                        1 if record.executed else 0,
+                        record.final_sql,
+                        json.dumps(record.retrieved_rules),
+                        record.guardrail_status,
+                        record.guardrail_error,
+                        record.rule_audit_status,
+                        json.dumps(record.rule_violations),
+                        record.revisions_attempted,
+                        record.execution_time_ms,
+                        record.row_count,
+                        record.error_message,
+                    ),
+                )
+                conn.commit()
+                break
+            except sqlite3.OperationalError as e:
+                if "locked" in str(e).lower() and attempt < max_attempts - 1:
+                    time.sleep(0.1 * (attempt + 1))
+                    continue
+                raise
+            finally:
+                conn.close()
 
         return record
 
     def get_recent_records(self, limit: int = 50) -> List[AuditRecord]:
-        """Retrieves most recent audit logs ordered by timestamp descending."""
-        conn = sqlite3.connect(self.db_path)
+        """Retrieves most recent audit logs ordered by timestamp descending.
+
+        Args:
+            limit: Maximum number of audit records to retrieve (default: 50).
+
+        Returns:
+            List of AuditRecord instances.
+        """
+        conn = self._get_connection(timeout=10.0)
         try:
             cur = conn.cursor()
             cur.execute(
@@ -212,8 +273,15 @@ class AuditLogger:
             conn.close()
 
     def get_record(self, request_id: str) -> Optional[AuditRecord]:
-        """Retrieves a single audit record by request ID."""
-        conn = sqlite3.connect(self.db_path)
+        """Retrieves a single audit record by request ID.
+
+        Args:
+            request_id: Unique request UUID string.
+
+        Returns:
+            AuditRecord if found, None otherwise.
+        """
+        conn = self._get_connection(timeout=10.0)
         try:
             cur = conn.cursor()
             cur.execute(

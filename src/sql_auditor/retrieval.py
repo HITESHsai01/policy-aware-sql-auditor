@@ -1,9 +1,9 @@
 """
 Lexical Retrieval Module for Policy-Aware SQL Auditor.
 
-Implements pure-Python Okapi BM25 scoring over versioned OKF concepts
-(titles, descriptions, tags, tables, and bodies) without external embedding models
-or paid API dependencies.
+Implements pure-Python Okapi BM25 scoring over versioned Open Knowledge Format (OKF) concepts
+(titles, descriptions, tags, governed tables, and documentation bodies) without requiring
+external embedding models, vector databases, or remote API dependencies.
 """
 
 from dataclasses import dataclass
@@ -11,16 +11,9 @@ import math
 import re
 from typing import Dict, List, Optional, Set, Tuple
 
-try:
-    from sql_auditor.knowledge_loader import ConceptDefinition, KnowledgeBundle
-except ImportError:
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from sql_auditor.knowledge_loader import ConceptDefinition, KnowledgeBundle
+from sql_auditor.knowledge_loader import ConceptDefinition, KnowledgeBundle
 
-
-# Common English stopwords to ignore in lexical matching
+# Standard English stopwords to eliminate non-discriminative terms during tokenization
 STOPWORDS: Set[str] = {
     "a", "about", "above", "after", "again", "against", "all", "am", "an", "and",
     "any", "are", "aren't", "as", "at", "be", "because", "been", "before", "being",
@@ -46,22 +39,40 @@ STOPWORDS: Set[str] = {
 
 
 def tokenize(text: str) -> List[str]:
-    """Tokenizes text into lowercase alphanumeric terms, stripping stopwords."""
+    """Tokenizes text into lowercase alphanumeric terms, stripping common stopwords.
+
+    Args:
+        text: The input natural language text or query.
+
+    Returns:
+        List of filtered lowercase terms with length greater than 1.
+    """
     words = re.findall(r"[a-zA-Z0-9_]+", text.lower())
     return [w for w in words if w not in STOPWORDS and len(w) > 1]
 
 
 @dataclass
 class ScoredConcept:
+    """Represents an OKF concept retrieved and scored by the BM25 lexical matcher.
+
+    Attributes:
+        concept: The retrieved ConceptDefinition instance.
+        score: Computed Okapi BM25 similarity score.
+        matched_terms: List of query terms that matched tokens in this concept.
+    """
+
     concept: ConceptDefinition
     score: float
     matched_terms: List[str]
 
 
 class BM25Retriever:
-    """
-    Pure-Python Okapi BM25 retriever for OKF concepts.
-    Standard parameters: k1 = 1.5, b = 0.75.
+    """Pure-Python Okapi BM25 retriever for Open Knowledge Format concepts.
+
+    Applies the Okapi BM25 probabilistic relevance framework:
+    - Default term saturation parameter $k_1 = 1.5$.
+    - Document length normalization parameter $b = 0.75$.
+    - Weighted document representations: titles (3x boost), tags (2x boost), tables (2x boost).
     """
 
     def __init__(
@@ -70,6 +81,13 @@ class BM25Retriever:
         k1: float = 1.5,
         b: float = 0.75,
     ):
+        """Initializes the retriever and indexes all active concepts in the knowledge bundle.
+
+        Args:
+            bundle: KnowledgeBundle catalog containing active OKF concepts.
+            k1: BM25 term frequency saturation factor (default: 1.5).
+            b: BM25 document length penalty factor (default: 0.75).
+        """
         self.bundle = bundle
         self.k1 = k1
         self.b = b
@@ -82,13 +100,13 @@ class BM25Retriever:
         self._build_index()
 
     def _build_index(self) -> None:
-        """Constructs inverted index and term statistics over all concepts."""
+        """Constructs an inverted index and computes IDF statistics across all concepts."""
         total_len = 0
         concepts = [c for c in self.bundle.get_all() if c.type != "index"]
 
         for c in concepts:
             # Weighted document representation:
-            # Title tokens repeated 3x, tags 2x, tables 2x for relevance boost
+            # Title tokens repeated 3x, tags 2x, tables 2x for semantic relevance boost
             title_tokens = tokenize(c.title) * 3
             tag_tokens = tokenize(" ".join(c.tags)) * 2
             table_tokens = tokenize(" ".join(c.tables)) * 2
@@ -107,7 +125,7 @@ class BM25Retriever:
         n_docs = len(self.docs)
         self.avg_doc_len = total_len / n_docs if n_docs > 0 else 0.0
 
-        # Calculate Okapi BM25 IDF
+        # Calculate Okapi BM25 Inverse Document Frequency (IDF)
         for t, freq in self.df.items():
             self.idf[t] = math.log((n_docs - freq + 0.5) / (freq + 0.5) + 1.0)
 
@@ -117,13 +135,12 @@ class BM25Retriever:
         top_k: int = 4,
         expand_related: bool = True,
     ) -> List[ScoredConcept]:
-        """
-        Retrieves top-k most relevant OKF concepts for a user question.
+        """Retrieves top-k most relevant OKF concepts for a user question.
 
         Args:
             query: The user query string.
-            top_k: Maximum concepts to return.
-            expand_related: If True, automatically pulls in linked policies/rules.
+            top_k: Maximum number of primary concepts to return.
+            expand_related: If True, automatically appends linked policies and dependencies.
 
         Returns:
             List of ScoredConcept ranked by BM25 score descending.
@@ -151,7 +168,7 @@ class BM25Retriever:
                     term_freq = tf[qterm]
                     idf_val = self.idf.get(qterm, 0.0)
 
-                    # Okapi BM25 formula
+                    # Okapi BM25 formula calculation
                     numerator = term_freq * (self.k1 + 1)
                     denominator = term_freq + self.k1 * (1 - self.b + self.b * (doc_len / self.avg_doc_len))
                     score += idf_val * (numerator / denominator)
@@ -174,7 +191,7 @@ class BM25Retriever:
             if self.bundle.get(cid) is not None
         ]
 
-        # Expand related concepts (e.g. pulling in policy.fiscal_year for departmental_spend)
+        # Expand related concepts (e.g., pulling in policy.fiscal_year when departmental_spend is matched)
         if expand_related:
             included_ids = {r.concept.id for r in results}
             extra_concepts = []
@@ -188,7 +205,7 @@ class BM25Retriever:
                                 extra_concepts.append(
                                     ScoredConcept(
                                         concept=rel_concept,
-                                        score=round(r.score * 0.75, 3),  # Inherited partial score
+                                        score=round(r.score * 0.75, 3),  # Inherited partial relevance score
                                         matched_terms=[f"linked_from:{r.concept.id}"],
                                     )
                                 )
@@ -196,4 +213,3 @@ class BM25Retriever:
             results.extend(extra_concepts)
 
         return results
-

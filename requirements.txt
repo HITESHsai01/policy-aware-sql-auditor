@@ -1,0 +1,6 @@
+sqlglot
+pyyaml
+streamlit
+fastapi
+pydantic
+

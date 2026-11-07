@@ -1,287 +1,494 @@
 """
-Benchmark Evaluation Runner.
+Benchmark Evaluation Runner for Policy-Aware SQL Auditor.
 
-Evaluates and compares three configurations over the 50-item benchmark test set:
-- Configuration A: Baseline (Question + Schema -> Direct Execution)
-- Configuration B: Baseline + Retrieval (Question + Schema + Rules in Prompt -> Direct Execution, No Audit)
-- Configuration C: Proposed System (Question + Schema + Rules -> AST Guardrails -> Deterministic Rule Audit -> Revise Loop)
+Evaluates and rigorously compares three configurations over the 50-item benchmark test set:
+- Configuration A: Baseline (Question + Schema -> Direct Execution, No Rules in Prompt, No Rule Audit)
+- Configuration B: Baseline + Prompt Grounding (Question + Schema + Rules in Prompt -> AST Guardrails -> Execution, No Semantic Rule Audit)
+- Configuration C: Proposed Policy-Aware Auditor (Router -> Retrieval -> Generator -> AST Guardrails -> Semantic Rule Audit -> Revise Loop -> Safe Execution)
 
-Outputs empirical performance metrics:
-- Execution Accuracy
-- Business-Rule Compliance Rate
-- Unsafe-Query Rejection Rate
-- False Rejection Rate
-- End-to-End Latency
+Methodology Integrity:
+- Gold SQL is strictly ground truth for verification, NEVER supplied as candidate SQL to the system under test.
+- Precomputed expected result fixtures generated from data/auditor.db provide independent verification.
+- Supports both offline deterministic mock evaluation (default) and real LLM evaluation (Ollama).
 """
 
-from dataclasses import asdict, dataclass
+import argparse
+from datetime import datetime, timezone
 import json
 from pathlib import Path
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     from sql_auditor.config import DEFAULT_DB_PATH, KNOWLEDGE_DIR
-    from sql_auditor.schema_inspector import inspect_schema
-    from sql_auditor.knowledge_loader import load_knowledge_bundle
+    from sql_auditor.schema_inspector import inspect_schema, DatabaseSchema
+    from sql_auditor.knowledge_loader import load_knowledge_bundle, KnowledgeBundle
     from sql_auditor.executor import SafeExecutor
-    from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend
+    from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend, OllamaBackend
     from sql_auditor.pipeline import AuditorPipeline, IntentType
     from sql_auditor.sql_guardrails import validate_sql
+    from sql_auditor.rule_auditor import RuleAuditor
+    from tests.evaluation.eval_utils import compare_results, EvalMetrics
 except ImportError:
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src"))
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
     from sql_auditor.config import DEFAULT_DB_PATH, KNOWLEDGE_DIR
-    from sql_auditor.schema_inspector import inspect_schema
-    from sql_auditor.knowledge_loader import load_knowledge_bundle
+    from sql_auditor.schema_inspector import inspect_schema, DatabaseSchema
+    from sql_auditor.knowledge_loader import load_knowledge_bundle, KnowledgeBundle
     from sql_auditor.executor import SafeExecutor
-    from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend
+    from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend, OllamaBackend
     from sql_auditor.pipeline import AuditorPipeline, IntentType
     from sql_auditor.sql_guardrails import validate_sql
+    from sql_auditor.rule_auditor import RuleAuditor
+    from tests.evaluation.eval_utils import compare_results, EvalMetrics
 
 
-BENCHMARK_DATASET_PATH = Path(__file__).resolve().parent / "benchmark_dataset.json"
-RESULTS_OUTPUT_PATH = Path(__file__).resolve().parent / "benchmark_results.json"
+DEFAULT_DATASET_PATH = Path(__file__).resolve().parent / "benchmark_dataset.json"
+DEFAULT_CANDIDATES_PATH = Path(__file__).resolve().parent / "mock_candidates.json"
+DEFAULT_RESULTS_PATH = Path(__file__).resolve().parent / "benchmark_results.json"
 
 
-@dataclass
-class EvalMetrics:
-    total_queries: int = 0
-    executed_queries: int = 0
-    correct_executions: int = 0
-    rule_compliant_count: int = 0
-    rule_queries_count: int = 0
-    unsafe_rejected_count: int = 0
-    unsafe_queries_count: int = 0
-    false_rejections: int = 0
-    valid_queries_count: int = 0
-    total_latency_ms: float = 0.0
-
-    @property
-    def execution_accuracy(self) -> float:
-        return round((self.correct_executions / self.valid_queries_count * 100), 1) if self.valid_queries_count else 0.0
-
-    @property
-    def rule_compliance_rate(self) -> float:
-        return round((self.rule_compliant_count / self.rule_queries_count * 100), 1) if self.rule_queries_count else 0.0
-
-    @property
-    def unsafe_rejection_rate(self) -> float:
-        return round((self.unsafe_rejected_count / self.unsafe_queries_count * 100), 1) if self.unsafe_queries_count else 0.0
-
-    @property
-    def false_rejection_rate(self) -> float:
-        return round((self.false_rejections / self.valid_queries_count * 100), 1) if self.valid_queries_count else 0.0
-
-    @property
-    def avg_latency_ms(self) -> float:
-        return round(self.total_latency_ms / self.total_queries, 2) if self.total_queries else 0.0
-
-
-def load_dataset() -> List[Dict[str, Any]]:
-    return json.loads(BENCHMARK_DATASET_PATH.read_text(encoding="utf-8"))
-
-
-def evaluate_config_a(dataset: List[Dict[str, Any]], schema, executor) -> EvalMetrics:
-    """Config A: Baseline (Question + Schema -> Direct Execution, No Rules, No Audit)."""
-    metrics = EvalMetrics(total_queries=len(dataset))
+def evaluate_config_a(
+    dataset: List[Dict[str, Any]],
+    candidates: Dict[str, str],
+    schema: DatabaseSchema,
+    bundle: KnowledgeBundle,
+    executor: SafeExecutor,
+    rule_auditor: RuleAuditor,
+    generator: Optional[SQLGenerator] = None,
+) -> Tuple[EvalMetrics, List[Dict[str, Any]]]:
+    """
+    Config A: Baseline SQL Generation without Prompt Grounding or Semantic Audit.
+    Question + Schema -> Candidate SQL -> Direct SQLite Execution.
+    In real mode (generator supplied), generates live candidates using a schema-only prompt.
+    """
+    metrics = EvalMetrics(config_name="Config A: Baseline", total_queries=len(dataset))
+    itemized: List[Dict[str, Any]] = []
 
     for item in dataset:
-        cat = item["category"]
-        sql = item["gold_sql"]
-
-        # Track category counts
-        if cat in ("direct_query", "metric_query"):
-            metrics.valid_queries_count += 1
-        if cat in ("metric_query", "rule_trap"):
-            metrics.rule_queries_count += 1
-        if cat in ("adversarial", "rule_trap"):
-            metrics.unsafe_queries_count += 1
-
-        t0 = time.perf_counter()
-
-        # In Baseline A: no safety guardrail on SQL AST, direct attempt on executor
-        if sql:
-            res = executor.execute(sql)
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            metrics.total_latency_ms += elapsed_ms
-
-            if res.success:
-                metrics.executed_queries += 1
-                if cat in ("direct_query", "metric_query"):
-                    metrics.correct_executions += 1
-                if cat == "metric_query":
-                    metrics.rule_compliant_count += 1
-                # On rule_trap, Config A blindly executes the non-compliant SQL!
-                # It fails to reject the rule trap!
-            else:
-                # Execution failed at SQLite level
-                if cat in ("adversarial", "rule_trap"):
-                    metrics.unsafe_rejected_count += 1
-                if cat in ("direct_query", "metric_query"):
-                    metrics.false_rejections += 1
-        else:
-            # Ambiguous or out-of-domain without router
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            metrics.total_latency_ms += elapsed_ms
-
-    return metrics
-
-
-def evaluate_config_b(dataset: List[Dict[str, Any]], schema, bundle, executor) -> EvalMetrics:
-    """Config B: Baseline + Prompt Grounding (Rules in prompt, but NO deterministic post-audit)."""
-    metrics = EvalMetrics(total_queries=len(dataset))
-
-    for item in dataset:
-        cat = item["category"]
-        sql = item["gold_sql"]
-
-        if cat in ("direct_query", "metric_query"):
-            metrics.valid_queries_count += 1
-        if cat in ("metric_query", "rule_trap"):
-            metrics.rule_queries_count += 1
-        if cat in ("adversarial", "rule_trap"):
-            metrics.unsafe_queries_count += 1
-
-        t0 = time.perf_counter()
-
-        # Config B has basic guardrails, but NO rule auditor
-        if sql:
-            gr = validate_sql(sql, schema=schema)
-            if gr.is_valid:
-                res = executor.execute(sql)
-                elapsed_ms = (time.perf_counter() - t0) * 1000.0
-                metrics.total_latency_ms += elapsed_ms
-
-                if res.success:
-                    metrics.executed_queries += 1
-                    if cat in ("direct_query", "metric_query"):
-                        metrics.correct_executions += 1
-                    if cat == "metric_query":
-                        metrics.rule_compliant_count += 1
-                    # Rule traps still pass because no rule auditor validates conditions!
-            else:
-                elapsed_ms = (time.perf_counter() - t0) * 1000.0
-                metrics.total_latency_ms += elapsed_ms
-                if cat in ("adversarial", "rule_trap"):
-                    metrics.unsafe_rejected_count += 1
-                if cat in ("direct_query", "metric_query"):
-                    metrics.false_rejections += 1
-        else:
-            elapsed_ms = (time.perf_counter() - t0) * 1000.0
-            metrics.total_latency_ms += elapsed_ms
-
-    return metrics
-
-
-def evaluate_config_c(dataset: List[Dict[str, Any]], pipeline: AuditorPipeline) -> EvalMetrics:
-    """Config C: Proposed System (Guardrails + Rule Compliance Audit + Revision Loop)."""
-    metrics = EvalMetrics(total_queries=len(dataset))
-
-    for item in dataset:
+        qid = item["id"]
         cat = item["category"]
         question = item["question"]
-        gold_sql = item["gold_sql"]
+        exp_res = item["expected_result"]
+        rule_ids = item.get("applicable_rules", [])
+        rules = [bundle.get(r) for r in rule_ids if bundle.get(r)]
+
+        t0 = time.perf_counter()
+        executed = False
+        result_match = False
+        is_compliant = False
+        err = None
+
+        if generator is not None:
+            try:
+                gen_res = generator.generate_candidate_sql(question=question, rules=[])
+                sql = gen_res.sql
+            except Exception as e:
+                sql = ""
+                err = f"Generation error: {e}"
+        else:
+            sql = candidates.get(qid, "")
+
+        # Category counting
+        if cat in ("direct_query", "metric_query"):
+            metrics.valid_queries += 1
+        if cat in ("direct_query", "metric_query", "rule_trap"):
+            metrics.executable_queries += 1
+        if bool(rule_ids) or cat in ("metric_query", "rule_trap"):
+            metrics.rule_queries += 1
+        if cat == "adversarial":
+            metrics.unsafe_queries += 1
+        if cat == "ambiguous":
+            metrics.ambiguous_queries += 1
+        if cat == "out_of_domain":
+            metrics.unsupported_queries += 1
+
+        if sql:
+            exec_res = executor.execute(sql)
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            metrics.total_latency_ms += elapsed_ms
+
+            if exec_res.success:
+                executed = True
+                metrics.executed_count += 1
+                result_match = compare_results(exec_res.rows, exp_res)
+                if result_match:
+                    metrics.correct_executions += 1
+
+                # Check if the query satisfied rules
+                if rules:
+                    audit = rule_auditor.audit(sql, rules=rules)
+                    is_compliant = audit.is_compliant
+                    if is_compliant:
+                        metrics.rule_compliant_count += 1
+            else:
+                err = exec_res.error_message
+                if cat == "adversarial":
+                    metrics.unsafe_rejected += 1
+                if cat in ("direct_query", "metric_query"):
+                    metrics.false_rejections += 1
+        else:
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            metrics.total_latency_ms += elapsed_ms
+
+        itemized.append({
+            "id": qid,
+            "category": cat,
+            "question": question,
+            "candidate_sql": sql,
+            "executed": executed,
+            "result_match": result_match,
+            "rule_compliant": is_compliant,
+            "latency_ms": round(elapsed_ms, 2),
+            "error": err,
+        })
+
+    return metrics, itemized
+
+
+def evaluate_config_b(
+    dataset: List[Dict[str, Any]],
+    candidates: Dict[str, str],
+    schema: DatabaseSchema,
+    bundle: KnowledgeBundle,
+    executor: SafeExecutor,
+    rule_auditor: RuleAuditor,
+    generator: Optional[SQLGenerator] = None,
+) -> Tuple[EvalMetrics, List[Dict[str, Any]]]:
+    """
+    Config B: Baseline + Prompt Grounding (Rules in prompt) + AST Guardrails.
+    No post-generation semantic rule auditor.
+    In real mode (generator supplied), generates live candidates using a rule-grounded prompt.
+    """
+    metrics = EvalMetrics(config_name="Config B: Baseline + Rules", total_queries=len(dataset))
+    itemized: List[Dict[str, Any]] = []
+
+    for item in dataset:
+        qid = item["id"]
+        cat = item["category"]
+        question = item["question"]
+        exp_res = item["expected_result"]
+        rule_ids = item.get("applicable_rules", [])
+        rules = [bundle.get(r) for r in rule_ids if bundle.get(r)]
+
+        t0 = time.perf_counter()
+        executed = False
+        result_match = False
+        is_compliant = False
+        err = None
+
+        if generator is not None:
+            try:
+                gen_res = generator.generate_candidate_sql(question=question, rules=rules)
+                sql = gen_res.sql
+            except Exception as e:
+                sql = ""
+                err = f"Generation error: {e}"
+        else:
+            sql = candidates.get(qid, "")
 
         if cat in ("direct_query", "metric_query"):
-            metrics.valid_queries_count += 1
-        if cat in ("metric_query", "rule_trap"):
-            metrics.rule_queries_count += 1
-        if cat in ("adversarial", "rule_trap"):
-            metrics.unsafe_queries_count += 1
+            metrics.valid_queries += 1
+        if cat in ("direct_query", "metric_query", "rule_trap"):
+            metrics.executable_queries += 1
+        if bool(rule_ids) or cat in ("metric_query", "rule_trap"):
+            metrics.rule_queries += 1
+        if cat == "adversarial":
+            metrics.unsafe_queries += 1
+        if cat == "ambiguous":
+            metrics.ambiguous_queries += 1
+        if cat == "out_of_domain":
+            metrics.unsupported_queries += 1
 
-        # Configure mock generator backend to return gold_sql (or revised if trap)
+        if sql:
+            guardrail = validate_sql(sql, schema=schema)
+            if guardrail.is_valid:
+                exec_res = executor.execute(sql)
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                metrics.total_latency_ms += elapsed_ms
+
+                if exec_res.success:
+                    executed = True
+                    metrics.executed_count += 1
+                    result_match = compare_results(exec_res.rows, exp_res)
+                    if result_match:
+                        metrics.correct_executions += 1
+
+                    if rules:
+                        audit = rule_auditor.audit(sql, rules=rules)
+                        is_compliant = audit.is_compliant
+                        if is_compliant:
+                            metrics.rule_compliant_count += 1
+                else:
+                    err = exec_res.error_message
+                    if cat in ("direct_query", "metric_query"):
+                        metrics.false_rejections += 1
+            else:
+                elapsed_ms = (time.perf_counter() - t0) * 1000.0
+                metrics.total_latency_ms += elapsed_ms
+                err = guardrail.error_message
+                if cat == "adversarial":
+                    metrics.unsafe_rejected += 1
+                if cat in ("direct_query", "metric_query"):
+                    metrics.false_rejections += 1
+        else:
+            elapsed_ms = (time.perf_counter() - t0) * 1000.0
+            metrics.total_latency_ms += elapsed_ms
+
+        itemized.append({
+            "id": qid,
+            "category": cat,
+            "question": question,
+            "candidate_sql": sql,
+            "executed": executed,
+            "result_match": result_match,
+            "rule_compliant": is_compliant,
+            "latency_ms": round(elapsed_ms, 2),
+            "error": err,
+        })
+
+    return metrics, itemized
+
+
+def evaluate_config_c(
+    dataset: List[Dict[str, Any]],
+    candidates_init: Dict[str, str],
+    candidates_rev: Dict[str, str],
+    pipeline: AuditorPipeline,
+) -> Tuple[EvalMetrics, List[Dict[str, Any]]]:
+    """
+    Config C: Proposed Policy-Aware SQL Auditor Pipeline.
+    Router -> BM25 Retrieval -> Prompt Generation -> AST Guardrail ->
+    Semantic Rule Auditor -> Single Revision Loop -> Safe Execution.
+    """
+    metrics = EvalMetrics(config_name="Config C: Proposed Auditor", total_queries=len(dataset))
+    itemized: List[Dict[str, Any]] = []
+
+    for item in dataset:
+        qid = item["id"]
+        cat = item["category"]
+        question = item["question"]
+        exp_res = item["expected_result"]
+        rule_ids = item.get("applicable_rules", [])
+
+        if cat in ("direct_query", "metric_query"):
+            metrics.valid_queries += 1
+        if cat in ("direct_query", "metric_query", "rule_trap"):
+            metrics.executable_queries += 1
+        if bool(rule_ids) or cat in ("metric_query", "rule_trap"):
+            metrics.rule_queries += 1
+        if cat == "adversarial":
+            metrics.unsafe_queries += 1
+        if cat == "ambiguous":
+            metrics.ambiguous_queries += 1
+        if cat == "out_of_domain":
+            metrics.unsupported_queries += 1
+
+        # Configure mock generator candidates for this question if in mock mode
+        if isinstance(pipeline.generator.backend, MockGeneratorBackend):
+            init_sql = candidates_init.get(qid, "SELECT 1;")
+            pipeline.generator.backend.set_response(question, init_sql)
+            if qid in candidates_rev:
+                pipeline.generator.backend.set_response(f"revised:{question}", candidates_rev[qid])
+
         t0 = time.perf_counter()
-        pipeline.generator.backend.set_response(question, gold_sql)
-
-        # Run full audited pipeline
-        res = pipeline.run(question, max_revisions=0 if cat == "rule_trap" else 1)
+        res = pipeline.run(question, max_revisions=1)
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         metrics.total_latency_ms += elapsed_ms
 
-        if res.executed:
-            metrics.executed_queries += 1
-            if cat in ("direct_query", "metric_query"):
+        result_match = False
+        is_compliant = False
+
+        # Track revision loop statistics
+        if res.revisions_attempted > 0:
+            metrics.initial_violations += 1
+            if res.executed:
+                metrics.successful_revisions += 1
+            else:
+                metrics.persistent_violations += 1
+
+        if res.executed and res.execution_result and res.execution_result.success:
+            metrics.executed_count += 1
+            result_match = compare_results(res.execution_result.rows, exp_res)
+            if result_match:
                 metrics.correct_executions += 1
-            if cat == "metric_query":
-                metrics.rule_compliant_count += 1
+            if bool(rule_ids) or cat in ("metric_query", "rule_trap"):
+                rules = [pipeline.bundle.get(r) for r in rule_ids if pipeline.bundle.get(r)]
+                if rules and res.final_sql:
+                    ctx = {"fiscal_year": 2024} if "2024" in question else {}
+                    audit = pipeline.rule_auditor.audit(res.final_sql, rules=rules, context=ctx)
+                    is_compliant = audit.is_compliant
+                else:
+                    is_compliant = True
+                if is_compliant:
+                    metrics.rule_compliant_count += 1
         else:
             # Query was rejected by router, guardrails, or rule auditor
-            if cat in ("adversarial", "rule_trap"):
-                metrics.unsafe_rejected_count += 1
-            if cat == "rule_trap":
-                # Successfully prevented non-compliant execution
+            if cat == "adversarial":
+                metrics.unsafe_rejected += 1
+            elif cat == "rule_trap":
+                # Non-compliant query was blocked from executing fail-closed
                 metrics.rule_compliant_count += 1
-            if cat in ("direct_query", "metric_query"):
+            elif cat == "ambiguous" and res.intent == IntentType.AMBIGUOUS:
+                metrics.ambiguous_handled += 1
+            elif cat == "out_of_domain" and res.intent == IntentType.UNSUPPORTED:
+                metrics.unsupported_handled += 1
+            elif cat in ("direct_query", "metric_query"):
                 metrics.false_rejections += 1
 
-    return metrics
+        itemized.append({
+            "id": qid,
+            "category": cat,
+            "question": question,
+            "final_sql": res.final_sql,
+            "intent": res.intent.value,
+            "revisions_attempted": res.revisions_attempted,
+            "executed": res.executed,
+            "result_match": result_match,
+            "rule_compliant": is_compliant,
+            "blocked_fail_closed": (cat == "rule_trap" and not res.executed),
+            "latency_ms": round(elapsed_ms, 2),
+            "error": res.error_message,
+        })
+
+    return metrics, itemized
 
 
-def run_benchmark():
-    schema = inspect_schema()
+def run_benchmark(
+    mode: str = "mock",
+    dataset_path: Path = DEFAULT_DATASET_PATH,
+    candidates_path: Path = DEFAULT_CANDIDATES_PATH,
+    output_path: Path = DEFAULT_RESULTS_PATH,
+    db_path: Path = DEFAULT_DB_PATH,
+    ollama_model: str = "llama3",
+) -> Dict[str, Any]:
+    """Runs the full evaluation benchmark across Config A, Config B, and Config C."""
+    schema = inspect_schema(db_path=db_path)
     bundle = load_knowledge_bundle(schema=schema)
-    executor = SafeExecutor()
-    backend = MockGeneratorBackend()
+    executor = SafeExecutor(db_path=db_path)
+    rule_auditor = RuleAuditor(schema=schema)
+
+    # Initialize generator backend based on mode
+    if mode == "real":
+        print(f"Initializing real Ollama backend with model: {ollama_model}...")
+        backend = OllamaBackend(model=ollama_model)
+    else:
+        backend = MockGeneratorBackend()
+
     generator = SQLGenerator(backend=backend, schema=schema)
     pipeline = AuditorPipeline(
         schema=schema,
         bundle=bundle,
         generator=generator,
         executor=executor,
+        rule_auditor=rule_auditor,
     )
 
-    dataset = load_dataset()
-    print(f"Loaded benchmark dataset with {len(dataset)} items.")
+    dataset = json.loads(dataset_path.read_text(encoding="utf-8"))
+    candidates = json.loads(candidates_path.read_text(encoding="utf-8"))
+    cand_a = candidates.get("config_a", {})
+    cand_b = candidates.get("config_b", {})
+    cand_c_init = candidates.get("config_c_initial", {})
+    cand_c_rev = candidates.get("config_c_revised", {})
 
-    print("Evaluating Configuration A (Baseline)...")
-    res_a = evaluate_config_a(dataset, schema, executor)
+    print(f"Loaded benchmark dataset with {len(dataset)} items from {dataset_path.name}.")
+    print(f"Evaluation Mode: {mode.upper()} ({'Pre-stored mock scenarios' if mode == 'mock' else f'Ollama {ollama_model}'})")
+    print(f"Database: {db_path}\n")
 
-    print("Evaluating Configuration B (Baseline + Prompt Grounding)...")
-    res_b = evaluate_config_b(dataset, schema, bundle, executor)
+    gen_for_baselines = generator if mode == "real" else None
 
-    print("Evaluating Configuration C (Proposed Policy-Aware Auditor)...")
-    res_c = evaluate_config_c(dataset, pipeline)
+    print("[1/3] Evaluating Configuration A (Baseline)...")
+    res_a, itemized_a = evaluate_config_a(
+        dataset, cand_a, schema, bundle, executor, rule_auditor, generator=gen_for_baselines
+    )
 
-    results_table = {
-        "Config A: Baseline": {
-            "Execution Accuracy": f"{res_a.execution_accuracy}%",
-            "Rule Compliance Rate": f"{res_a.rule_compliance_rate}%",
-            "Unsafe Rejection Rate": f"{res_a.unsafe_rejection_rate}%",
-            "False Rejection Rate": f"{res_a.false_rejection_rate}%",
-            "Avg Latency (ms)": f"{res_a.avg_latency_ms} ms",
+    print("[2/3] Evaluating Configuration B (Baseline + Prompt Grounding)...")
+    res_b, itemized_b = evaluate_config_b(
+        dataset, cand_b, schema, bundle, executor, rule_auditor, generator=gen_for_baselines
+    )
+
+    print("[3/3] Evaluating Configuration C (Proposed Policy-Aware Auditor)...")
+    res_c, itemized_c = evaluate_config_c(dataset, cand_c_init, cand_c_rev, pipeline)
+
+    summary_table = {
+        "Config A: Baseline": res_a.to_summary_dict(),
+        "Config B: Baseline + Rules": res_b.to_summary_dict(),
+        "Config C: Proposed Auditor": res_c.to_summary_dict(),
+    }
+
+    revision_analysis = {
+        "initial_violations_detected": res_c.initial_violations,
+        "successful_revisions": res_c.successful_revisions,
+        "persistent_violations_rejected": res_c.persistent_violations,
+        "revision_success_rate": f"{res_c.revision_success_rate}%",
+    }
+
+    full_results = {
+        "metadata": {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "mode": mode,
+            "generator_backend": backend.model_name,
+            "total_benchmark_cases": len(dataset),
+            "dataset_path": str(dataset_path),
+            "database_path": str(db_path),
+            "notes": "Mock mode latency reflects in-memory Python AST and rule audit overhead, not remote LLM inference latency." if mode == "mock" else "Real LLM execution with live inference latency.",
         },
-        "Config B: Baseline + Rules": {
-            "Execution Accuracy": f"{res_b.execution_accuracy}%",
-            "Rule Compliance Rate": f"{res_b.rule_compliance_rate}%",
-            "Unsafe Rejection Rate": f"{res_b.unsafe_rejection_rate}%",
-            "False Rejection Rate": f"{res_b.false_rejection_rate}%",
-            "Avg Latency (ms)": f"{res_b.avg_latency_ms} ms",
-        },
-        "Config C: Proposed Auditor": {
-            "Execution Accuracy": f"{res_c.execution_accuracy}%",
-            "Rule Compliance Rate": f"{res_c.rule_compliance_rate}%",
-            "Unsafe Rejection Rate": f"{res_c.unsafe_rejection_rate}%",
-            "False Rejection Rate": f"{res_c.false_rejection_rate}%",
-            "Avg Latency (ms)": f"{res_c.avg_latency_ms} ms",
+        "summary": summary_table,
+        "revision_effectiveness": revision_analysis,
+        "itemized_details": {
+            "config_a": itemized_a,
+            "config_b": itemized_b,
+            "config_c": itemized_c,
         },
     }
 
     # Save to JSON
-    RESULTS_OUTPUT_PATH.write_text(json.dumps(results_table, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(full_results, indent=2), encoding="utf-8")
+    print(f"\nSaved benchmark results to {output_path}.\n")
 
-    print("\n=================== BENCHMARK EVALUATION RESULTS ===================")
-    print(f"{'Metric':<25} | {'Config A (Baseline)':<20} | {'Config B (+ Prompt)':<20} | {'Config C (Auditor)':<20}")
-    print("-" * 92)
-    for metric in ("Execution Accuracy", "Rule Compliance Rate", "Unsafe Rejection Rate", "False Rejection Rate", "Avg Latency (ms)"):
-        v_a = results_table["Config A: Baseline"][metric]
-        v_b = results_table["Config B: Baseline + Rules"][metric]
-        v_c = results_table["Config C: Proposed Auditor"][metric]
-        print(f"{metric:<25} | {v_a:<20} | {v_b:<20} | {v_c:<20}")
-    print("====================================================================\n")
+    # Display Markdown comparison table
+    print("================================== EMPIRICAL BENCHMARK EVALUATION ==================================")
+    print(f"{'Metric':<28} | {'Config A: Baseline':<20} | {'Config B: Baseline+Rules':<24} | {'Config C: Proposed Auditor':<26}")
+    print("-" * 106)
+    metrics_display = [
+        ("Execution Accuracy", "Execution Accuracy"),
+        ("Rule Compliance Rate", "Rule Compliance Rate"),
+        ("Unsafe Rejection Rate", "Unsafe Rejection Rate"),
+        ("False Rejection Rate", "False Rejection Rate"),
+        ("Overall System Accuracy", "Overall System Accuracy"),
+        ("Avg Latency (ms)", "Avg Latency (ms)"),
+    ]
+    for label, key in metrics_display:
+        va = summary_table["Config A: Baseline"].get(key, "N/A")
+        vb = summary_table["Config B: Baseline + Rules"].get(key, "N/A")
+        vc = summary_table["Config C: Proposed Auditor"].get(key, "N/A")
+        print(f"{label:<28} | {va:<20} | {vb:<24} | {vc:<26}")
+    print("====================================================================================================")
+    print(f"Revision Effectiveness (Config C): {res_c.successful_revisions}/{res_c.initial_violations} violations repaired ({res_c.revision_success_rate}%), {res_c.persistent_violations} persistent violations blocked fail-closed.")
+    print("====================================================================================================\n")
 
-    return results_table
+    return full_results
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Policy-Aware SQL Auditor Benchmark Runner")
+    parser.add_argument("--mode", choices=["mock", "real"], default="mock", help="Evaluation mode: 'mock' (default) or 'real'")
+    parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET_PATH, help="Path to benchmark dataset JSON")
+    parser.add_argument("--candidates", type=Path, default=DEFAULT_CANDIDATES_PATH, help="Path to mock candidates JSON")
+    parser.add_argument("--output", type=Path, default=DEFAULT_RESULTS_PATH, help="Path to output results JSON")
+    parser.add_argument("--db", type=Path, default=DEFAULT_DB_PATH, help="Path to SQLite database")
+    parser.add_argument("--model", type=str, default="llama3", help="Ollama model name for real mode")
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    run_benchmark()
+    args = parse_args()
+    run_benchmark(
+        mode=args.mode,
+        dataset_path=args.dataset,
+        candidates_path=args.candidates,
+        output_path=args.output,
+        db_path=args.db,
+        ollama_model=args.model,
+    )

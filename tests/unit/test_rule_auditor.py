@@ -163,3 +163,82 @@ def test_audit_unqualified_column_resolution(auditor, bundle):
     res = auditor.audit(sql, rules=rules, context={"fiscal_year": 2024})
     assert res.status == AuditStatus.PASS
 
+
+def test_audit_fails_cross_table_column_confusion(auditor, bundle):
+    """Ensure orders.status='approved' does NOT satisfy required expenses.status='approved'."""
+    rules = [bundle.get("metric.departmental_spend")]
+    sql = """
+        SELECT d.name, SUM(e.amount)
+        FROM departments d
+        JOIN expenses e ON d.id = e.department_id
+        JOIN orders o ON d.id = o.customer_id
+        WHERE o.status = 'approved'
+          AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31'
+        GROUP BY d.name;
+    """
+    res = auditor.audit(sql, rules=rules, context={"fiscal_year": 2024})
+    assert res.status == AuditStatus.FAIL
+    assert res.is_compliant is False
+    assert any("expenses.status" in v.message for v in res.violations)
+
+
+def test_audit_where_join_equality_passes(auditor, bundle):
+    rules = [bundle.get("metric.departmental_spend")]
+    sql = """
+        SELECT d.name, SUM(e.amount)
+        FROM departments d, expenses e
+        WHERE d.id = e.department_id
+          AND e.status = 'approved'
+          AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31'
+        GROUP BY d.name;
+    """
+    res = auditor.audit(sql, rules=rules, context={"fiscal_year": 2024})
+    assert res.status == AuditStatus.PASS
+
+
+def test_audit_where_cartesian_product_fails(auditor, bundle):
+    rules = [bundle.get("metric.departmental_spend")]
+    sql = """
+        SELECT d.name, SUM(e.amount)
+        FROM departments d, expenses e
+        WHERE d.name = 'Engineering'
+          AND e.status = 'approved'
+          AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31'
+        GROUP BY d.name;
+    """
+    res = auditor.audit(sql, rules=rules, context={"fiscal_year": 2024})
+    assert res.status == AuditStatus.FAIL
+    assert any(v.violation_type == "MISSING_JOIN" for v in res.violations)
+
+
+def test_audit_where_join_guarded_by_or_fails(auditor, bundle):
+    rules = [bundle.get("metric.departmental_spend")]
+    sql = """
+        SELECT d.name, SUM(e.amount)
+        FROM departments d, expenses e
+        WHERE (d.id = e.department_id OR 1 = 1)
+          AND e.status = 'approved'
+          AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31'
+        GROUP BY d.name;
+    """
+    res = auditor.audit(sql, rules=rules, context={"fiscal_year": 2024})
+    assert res.status == AuditStatus.FAIL
+    assert any(v.violation_type == "MISSING_JOIN" for v in res.violations)
+
+
+def test_audit_where_join_guarded_by_not_fails(auditor, bundle):
+    rules = [bundle.get("metric.departmental_spend")]
+    sql = """
+        SELECT d.name, SUM(e.amount)
+        FROM departments d, expenses e
+        WHERE NOT (d.id = e.department_id)
+          AND e.status = 'approved'
+          AND e.expense_date BETWEEN '2024-01-01' AND '2024-12-31'
+        GROUP BY d.name;
+    """
+    res = auditor.audit(sql, rules=rules, context={"fiscal_year": 2024})
+    assert res.status == AuditStatus.FAIL
+    assert any(v.violation_type == "MISSING_JOIN" for v in res.violations)
+
+
+

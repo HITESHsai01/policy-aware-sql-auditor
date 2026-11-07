@@ -5,7 +5,7 @@ Unit tests for SQL Generator and Model Backends (sql_generator.py).
 import pytest
 from sql_auditor.schema_inspector import inspect_schema
 from sql_auditor.knowledge_loader import load_knowledge_bundle
-from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend, OllamaBackend
+from sql_auditor.sql_generator import GeminiBackend, MockGeneratorBackend, OllamaBackend, SQLGenerator
 
 
 @pytest.fixture(scope="module")
@@ -61,6 +61,17 @@ Hope that helps!
     extracted = SQLGenerator.extract_sql(markdown_output)
     assert extracted == "SELECT id, name FROM departments;"
 
+    # Test unclosed code block
+    unclosed = "```sql\nSELECT * FROM departments"
+    assert SQLGenerator.extract_sql(unclosed) == "SELECT * FROM departments;"
+
+    # Test double fence or backtick fragment
+    double_fence = "```sql\n```sql\nSELECT 1;\n```"
+    assert SQLGenerator.extract_sql(double_fence) == "SELECT 1;"
+
+    # Test stray fence only
+    assert SQLGenerator.extract_sql("```sql") == ""
+
 
 def test_mock_generator_keyword_matching(schema, bundle):
     backend = MockGeneratorBackend(
@@ -103,4 +114,18 @@ def test_mock_generator_revision_switch(schema, bundle):
     )
     assert "WHERE status = 'approved'" in res2.sql
     assert res2.attempt == 2
+
+
+def test_gemini_backend_initialization_and_empty_key():
+    backend = GeminiBackend(api_key="", model="gemini-2.5-flash")
+    assert backend.model_name == "gemini/gemini-2.5-flash"
+    with pytest.raises(ValueError, match="Gemini API key is required"):
+        backend.generate("SELECT 1;")
+
+
+def test_gemini_backend_custom_model():
+    backend = GeminiBackend(api_key="fake-key", model="gemini-1.5-flash")
+    assert backend.model_name == "gemini/gemini-1.5-flash"
+    assert backend.api_key == "fake-key"
+
 

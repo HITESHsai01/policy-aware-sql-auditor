@@ -60,6 +60,7 @@ def test_reject_multiple_statements(schema):
     sql = "SELECT id FROM departments; SELECT * FROM expenses;"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "multiple" in res.error_message.lower()
 
 
@@ -67,6 +68,7 @@ def test_reject_insert_mutation(schema):
     sql = "INSERT INTO departments (name) VALUES ('Hacking');"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "Disallowed statement type" in res.error_message or "mutating" in res.error_message.lower()
 
 
@@ -74,6 +76,7 @@ def test_reject_update_mutation(schema):
     sql = "UPDATE expenses SET amount = 0 WHERE id = 1;"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "Disallowed statement type" in res.error_message or "mutating" in res.error_message.lower()
 
 
@@ -81,6 +84,7 @@ def test_reject_delete_mutation(schema):
     sql = "DELETE FROM expenses WHERE id = 1;"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "Disallowed statement type" in res.error_message or "mutating" in res.error_message.lower()
 
 
@@ -88,6 +92,7 @@ def test_reject_ddl_drop(schema):
     sql = "DROP TABLE departments;"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "Disallowed statement type" in res.error_message or "mutating" in res.error_message.lower()
 
 
@@ -106,6 +111,7 @@ def test_reject_mutating_cte(schema):
     """
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "mutating" in res.error_message.lower() or "disallowed" in res.error_message.lower()
 
 
@@ -113,6 +119,7 @@ def test_reject_unknown_table(schema):
     sql = "SELECT * FROM salaries;"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "unknown table 'salaries'" in res.error_message.lower()
 
 
@@ -120,6 +127,7 @@ def test_reject_unknown_column_qualified(schema):
     sql = "SELECT expenses.credit_card_number FROM expenses;"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "unknown column 'credit_card_number'" in res.error_message.lower()
 
 
@@ -127,6 +135,7 @@ def test_reject_unknown_column_unqualified(schema):
     sql = "SELECT secret_pin FROM expenses;"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "unknown column 'secret_pin'" in res.error_message.lower()
 
 
@@ -134,17 +143,20 @@ def test_reject_disallowed_function(schema):
     sql = "SELECT load_extension('malicious.dll');"
     res = validate_sql(sql, schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "disallowed function" in res.error_message.lower()
 
 
 def test_reject_empty_sql(schema):
     res = validate_sql("   ", schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "empty" in res.error_message.lower()
 
 
 def test_reject_malformed_syntax(schema):
     res = validate_sql("SELECT FROM WHERE ;", schema=schema)
     assert not res.is_valid
+    assert res.error_message is not None
     assert "parse" in res.error_message.lower() or "syntax" in res.error_message.lower()
 

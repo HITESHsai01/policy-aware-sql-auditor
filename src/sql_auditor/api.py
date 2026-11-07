@@ -1,80 +1,91 @@
 """
 FastAPI REST API Service for Policy-Aware SQL Auditor.
 
-Exposes endpoints:
+Exposes REST endpoints:
 - POST /ask: Evaluates questions, generates compliant SQL, audits rules, and executes read-only.
-- GET /health: Healthcheck and system readiness.
-- GET /audit-logs: Returns recent audit records.
-- GET /rules: Returns loaded OKF concept rules.
+- GET /health: Healthcheck, database status, and catalog readiness.
+- GET /audit-logs: Returns recent diagnostic audit records.
+- GET /rules: Returns active Open Knowledge Format (OKF) concept definitions.
 """
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query
 from pydantic import BaseModel, Field
 
-try:
-    from sql_auditor.config import DEFAULT_DB_PATH, KNOWLEDGE_DIR
-    from sql_auditor.schema_inspector import DatabaseSchema, inspect_schema
-    from sql_auditor.knowledge_loader import KnowledgeBundle, load_knowledge_bundle
-    from sql_auditor.executor import SafeExecutor
-    from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend
-    from sql_auditor.pipeline import AuditorPipeline, PipelineResult
-    from sql_auditor.audit_log import AuditLogger, AuditRecord
-    from sql_auditor.answer_builder import AnswerBuilder, StructuredAnswer
-except ImportError:
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from sql_auditor.config import DEFAULT_DB_PATH, KNOWLEDGE_DIR
-    from sql_auditor.schema_inspector import DatabaseSchema, inspect_schema
-    from sql_auditor.knowledge_loader import KnowledgeBundle, load_knowledge_bundle
-    from sql_auditor.executor import SafeExecutor
-    from sql_auditor.sql_generator import SQLGenerator, MockGeneratorBackend
-    from sql_auditor.pipeline import AuditorPipeline, PipelineResult
-    from sql_auditor.audit_log import AuditLogger, AuditRecord
-    from sql_auditor.answer_builder import AnswerBuilder, StructuredAnswer
+from sql_auditor.answer_builder import AnswerBuilder, StructuredAnswer
+from sql_auditor.audit_log import AuditLogger, AuditRecord
+from sql_auditor.config import DEFAULT_AUDIT_DB_PATH, DEFAULT_DB_PATH, KNOWLEDGE_DIR
+from sql_auditor.executor import SafeExecutor
+from sql_auditor.knowledge_loader import KnowledgeBundle, load_knowledge_bundle
+from sql_auditor.pipeline import AuditorPipeline, PipelineResult
+from sql_auditor.schema_inspector import DatabaseSchema, inspect_schema
+from sql_auditor.sql_generator import MockGeneratorBackend, SQLGenerator
 
 
 # Request / Response Schemas
 class AskRequest(BaseModel):
+    """Payload schema for submitting a natural language query."""
+
     question: str = Field(..., description="Natural language question to ask the database.")
-    context: Optional[Dict[str, Any]] = Field(default=None, description="Optional context parameters like fiscal_year.")
+    context: Optional[Dict[str, Any]] = Field(
+        default=None, description="Optional context parameters like fiscal_year."
+    )
 
 
 class AskResponse(BaseModel):
-    status: str
-    answer_summary: str
-    sql_query: Optional[str] = None
-    columns: List[str] = []
-    rows: List[Dict[str, Any]] = []
-    row_count: int = 0
-    truncated: bool = False
-    cited_rules: List[str] = []
-    revisions_attempted: int = 0
-    clarification_prompt: Optional[str] = None
-    diagnostics: Dict[str, Any] = {}
-    request_id: Optional[str] = None
+    """Response schema returned by the /ask query endpoint."""
+
+    status: str = Field(..., description="Evaluation status (success, rejected_rule_violation, etc.).")
+    answer_summary: str = Field(..., description="Natural language answer summary.")
+    sql_query: Optional[str] = Field(default=None, description="Executed or candidate SQL query.")
+    columns: List[str] = Field(default_factory=list, description="Projected column names.")
+    rows: List[Dict[str, Any]] = Field(default_factory=list, description="Returned result rows.")
+    row_count: int = Field(default=0, description="Total records returned.")
+    truncated: bool = Field(default=False, description="Whether row limit was reached.")
+    cited_rules: List[str] = Field(default_factory=list, description="Identifiers of rules applied.")
+    revisions_attempted: int = Field(default=0, description="Number of automated revisions.")
+    clarification_prompt: Optional[str] = Field(default=None, description="Clarification message if needed.")
+    diagnostics: Dict[str, Any] = Field(default_factory=dict, description="Internal diagnostic traces.")
+    request_id: Optional[str] = Field(default=None, description="Unique audit trace identifier.")
+    explanation: Optional[str] = Field(default=None, description="Detailed conversational explanation.")
+    policy_justifications: List[Dict[str, Any]] = Field(
+        default_factory=list, description="Structured policy explanations."
+    )
 
 
 class HealthResponse(BaseModel):
-    status: str
-    database: str
-    tables_count: int
-    tables: List[str]
-    concepts_loaded: int
-    timestamp: str
+    """Response schema returned by the /health readiness probe."""
+
+    status: str = Field(..., description="System operational status ('ok').")
+    database: str = Field(..., description="Path to active SQLite database.")
+    tables_count: int = Field(..., description="Number of user tables discovered.")
+    tables: List[str] = Field(..., description="Alphabetical list of table names.")
+    concepts_loaded: int = Field(..., description="Count of loaded OKF concepts.")
+    timestamp: str = Field(..., description="ISO 8601 UTC timestamp of healthcheck.")
 
 
 def create_app(
     pipeline: Optional[AuditorPipeline] = None,
     logger: Optional[AuditLogger] = None,
     db_path: Path = DEFAULT_DB_PATH,
+    audit_db_path: Path = DEFAULT_AUDIT_DB_PATH,
     knowledge_dir: Path = KNOWLEDGE_DIR,
 ) -> FastAPI:
-    """Factory function to instantiate the FastAPI app with dependency injection."""
+    """Factory function to instantiate the FastAPI app with dependency injection.
 
+    Args:
+        pipeline: Optional pre-configured AuditorPipeline instance.
+        logger: Optional AuditLogger instance.
+        db_path: Path to the SQLite database file for business schema and execution.
+        audit_db_path: Path to the dedicated SQLite database file for audit logging.
+        knowledge_dir: Path to directory containing OKF concept markdown files.
+
+    Returns:
+        Configured FastAPI application instance.
+    """
     # Initialize default dependencies if not supplied
     if pipeline is None:
         schema = inspect_schema(db_path=db_path)
@@ -90,7 +101,7 @@ def create_app(
         )
 
     if logger is None:
-        logger = AuditLogger(db_path=db_path)
+        logger = AuditLogger(db_path=audit_db_path)
 
     app = FastAPI(
         title="Policy-Aware SQL Auditor API",
@@ -105,6 +116,7 @@ def create_app(
 
     @app.get("/health", response_model=HealthResponse)
     def health_check() -> HealthResponse:
+        """Health check endpoint reporting database connectivity and loaded rule metrics."""
         pipe: AuditorPipeline = app.state.pipeline
         schema: DatabaseSchema = pipe.schema
         tables = list(schema.tables.keys())
@@ -119,6 +131,7 @@ def create_app(
 
     @app.post("/ask", response_model=AskResponse)
     def ask_question(request: AskRequest) -> AskResponse:
+        """Evaluates a user question through the audited pipeline and returns a structured response."""
         pipe: AuditorPipeline = app.state.pipeline
         audit_log: AuditLogger = app.state.logger
 
@@ -147,16 +160,20 @@ def create_app(
             clarification_prompt=answer.clarification_prompt,
             diagnostics=answer.diagnostics,
             request_id=audit_rec.request_id,
+            explanation=answer.explanation,
+            policy_justifications=answer.policy_justifications,
         )
 
     @app.get("/audit-logs", response_model=List[Dict[str, Any]])
     def get_audit_logs(limit: int = Query(default=20, ge=1, le=100)) -> List[Dict[str, Any]]:
+        """Retrieves recent query audit records from persistent SQLite audit storage."""
         audit_log: AuditLogger = app.state.logger
         records = audit_log.get_recent_records(limit=limit)
         return [r.to_dict() for r in records]
 
     @app.get("/rules", response_model=List[Dict[str, Any]])
     def list_rules() -> List[Dict[str, Any]]:
+        """Lists active Open Knowledge Format (OKF) business compliance rules and constraints."""
         pipe: AuditorPipeline = app.state.pipeline
         concepts = pipe.bundle.get_all()
         return [
@@ -183,5 +200,5 @@ def create_app(
     return app
 
 
-# Default app instance
+# Default application instance
 app = create_app()
