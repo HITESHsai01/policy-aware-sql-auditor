@@ -2,11 +2,7 @@
 
 > **Deterministic SQL governance, semantic policy auditing, and AST security guardrails for enterprise Text-to-SQL generation.**
 
-<!-- =========================================================================== -->
-<!-- PLACEHOLDER 1: HERO SCREENSHOT (Dashboard Compliance & Audit Matrix)       -->
-<!-- Replace the line below with your screenshot or drag & drop image in GitHub: -->
-<!-- ![Policy-Aware SQL Auditor Dashboard](YOUR_MAIN_DASHBOARD_IMAGE_URL_OR_PATH) -->
-<!-- =========================================================================== -->
+<img width="1917" height="915" alt="image" src="https://github.com/user-attachments/assets/43032699-d6f4-4061-8e6d-3555737657f7" />
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
@@ -113,13 +109,9 @@ streamlit run app.py
 | **SQL Revision Artifact** | Side-by-side view comparing candidate SQL against automatic self-correction repairs. |
 | **Execution Results** | Safe read-only preview of executed database rows, column headers, and execution latency in milliseconds. |
 
-<!-- =========================================================================== -->
-<!-- PLACEHOLDER 2 & 3: QUERY STUDIO & RESULTS SCREENSHOTS                       -->
-<!-- Replace the lines below with your screenshots or drag & drop in GitHub:     -->
-<!--                                                                             -->
-<!-- ![Query Studio](YOUR_QUERY_STUDIO_IMAGE_URL_OR_PATH)                       -->
-<!-- ![Execution Results](YOUR_RESULTS_IMAGE_URL_OR_PATH)                       -->
-<!-- =========================================================================== -->
+<img width="1916" height="907" alt="image" src="https://github.com/user-attachments/assets/5df572d3-f800-4da1-bc96-4612bf53c29d" />
+<img width="1917" height="898" alt="image" src="https://github.com/user-attachments/assets/fbc40395-77e4-4a9d-adfc-adde5d7f6a9d" />
+
 
 ---
 
